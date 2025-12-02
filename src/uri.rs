@@ -31,9 +31,7 @@ impl S3Uri {
         let key = if parts.len() > 1 {
             parts[1].to_string()
         } else {
-            return Err(S3FcpError::InvalidUri(
-                "Object key is missing".to_string(),
-            ));
+            return Err(S3FcpError::InvalidUri("Object key is missing".to_string()));
         };
 
         if key.is_empty() {
