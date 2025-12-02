@@ -15,24 +15,25 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: s3fcp
             asset_name: s3fcp-linux-x86_64
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
             artifact_name: s3fcp
             asset_name: s3fcp-linux-aarch64
           - target: aarch64-apple-darwin
             os: macos-latest
             artifact_name: s3fcp
             asset_name: s3fcp-macos-aarch64
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            artifact_name: s3fcp.exe
-            asset_name: s3fcp-windows-x86_64.exe
     steps:
       - uses: actions/checkout@v4
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -63,8 +64,7 @@ jobs:
           mv artifacts/s3fcp-linux-x86_64/s3fcp release/s3fcp-linux-x86_64
           mv artifacts/s3fcp-linux-aarch64/s3fcp release/s3fcp-linux-aarch64
           mv artifacts/s3fcp-macos-aarch64/s3fcp release/s3fcp-macos-aarch64
-          mv artifacts/s3fcp-windows-x86_64.exe/s3fcp.exe release/s3fcp-windows-x86_64.exe
-          chmod +x release/s3fcp-* 2>/dev/null || true
+          chmod +x release/s3fcp-*
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
