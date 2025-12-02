@@ -43,8 +43,10 @@ s3fcp s3://bucket/key --version-id v123
 # Increase concurrency
 s3fcp s3://bucket/key -c 16
 
-# Use larger chunks (16MB)
-s3fcp s3://bucket/key --chunk-size 16777216
+# Use larger chunks (human-readable sizes)
+s3fcp s3://bucket/key --chunk-size 16MB
+s3fcp s3://bucket/key --chunk-size 16MiB
+s3fcp s3://bucket/key --chunk-size 1GB
 
 # Quiet mode (no progress bar)
 s3fcp s3://bucket/key -q
@@ -60,11 +62,16 @@ Arguments:
 
 Options:
   --version-id <VERSION_ID>      S3 object version ID for versioned objects
-  -c, --concurrency <CONCURRENCY>  Number of concurrent download workers [default: 8]
-  --chunk-size <CHUNK_SIZE>      Chunk size in bytes for range requests [default: 8388608]
+  -c, --concurrency <CONCURRENCY>  Number of concurrent download workers [default: 10]
+  --chunk-size <CHUNK_SIZE>      Chunk size (supports human-readable sizes: 8MB, 16MiB, 1GB, etc.) [default: 8MB]
   -q, --quiet                    Quiet mode - suppress progress output
   -h, --help                     Print help
 ```
+
+Supported chunk size formats:
+- Plain numbers: `8388608` (bytes)
+- Decimal: `8MB`, `1GB`, `1TB` (powers of 1000)
+- Binary: `8MiB`, `1GiB`, `1TiB` (powers of 1024)
 
 ## Architecture
 
@@ -94,9 +101,9 @@ Memory usage is bounded by:
 Max Memory ≈ 2 × concurrency × chunk_size
 ```
 
-With defaults (concurrency=8, chunk_size=8MB):
+With defaults (concurrency=10, chunk_size=8MB):
 ```
-Max Memory ≈ 128MB
+Max Memory ≈ 160MB
 ```
 
 This holds regardless of the S3 object size.
