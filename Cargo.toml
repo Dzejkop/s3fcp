@@ -1,0 +1,30 @@
+[package]
+name = "s3fcp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# AWS SDK
+aws-config = "1.5"
+aws-sdk-s3 = "1.55"
+
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+
+# Retry logic
+backon = "1.6.0"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Progress
+indicatif = "0.17"
+
+# Utilities
+bytes = "1.7"
+futures = "0.3"
