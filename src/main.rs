@@ -4,9 +4,6 @@ mod downloader;
 mod error;
 mod progress;
 mod s3_client;
-mod stage1_queue;
-mod stage2_download;
-mod stage3_output;
 mod uri;
 
 use clap::Parser;
