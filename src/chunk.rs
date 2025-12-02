@@ -1,0 +1,80 @@
+use bytes::Bytes;
+
+#[derive(Debug, Clone)]
+pub struct Chunk {
+    pub index: usize,
+    pub start: u64,
+    pub end: u64,
+    pub version_id: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct DownloadedChunk {
+    pub index: usize,
+    pub data: Bytes,
+}
+
+/// Create chunks from content length and chunk size
+pub fn create_chunks(
+    content_length: u64,
+    chunk_size: usize,
+    version_id: Option<String>,
+) -> Vec<Chunk> {
+    let mut chunks = Vec::new();
+    let mut start = 0u64;
+    let mut index = 0;
+
+    while start < content_length {
+        let end = (start + chunk_size as u64 - 1).min(content_length - 1);
+        chunks.push(Chunk {
+            index,
+            start,
+            end,
+            version_id: version_id.clone(),
+        });
+        start = end + 1;
+        index += 1;
+    }
+
+    chunks
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_chunks_exact_multiple() {
+        let chunks = create_chunks(1000, 100, None);
+        assert_eq!(chunks.len(), 10);
+        assert_eq!(chunks[0].start, 0);
+        assert_eq!(chunks[0].end, 99);
+        assert_eq!(chunks[9].start, 900);
+        assert_eq!(chunks[9].end, 999);
+    }
+
+    #[test]
+    fn test_create_chunks_with_remainder() {
+        let chunks = create_chunks(1050, 100, None);
+        assert_eq!(chunks.len(), 11);
+        assert_eq!(chunks[10].start, 1000);
+        assert_eq!(chunks[10].end, 1049);
+    }
+
+    #[test]
+    fn test_create_chunks_single_chunk() {
+        let chunks = create_chunks(50, 100, None);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].start, 0);
+        assert_eq!(chunks[0].end, 49);
+    }
+
+    #[test]
+    fn test_create_chunks_with_version_id() {
+        let version = Some("v123".to_string());
+        let chunks = create_chunks(100, 50, version.clone());
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].version_id, version);
+        assert_eq!(chunks[1].version_id, version);
+    }
+}
