@@ -63,8 +63,8 @@ jobs:
           mv artifacts/s3fcp-linux-x86_64/s3fcp release/s3fcp-linux-x86_64
           mv artifacts/s3fcp-linux-aarch64/s3fcp release/s3fcp-linux-aarch64
           mv artifacts/s3fcp-macos-aarch64/s3fcp release/s3fcp-macos-aarch64
-          mv artifacts/s3fcp-windows-x86_64/s3fcp.exe release/s3fcp-windows-x86_64.exe
-          chmod +x release/s3fcp-*
+          mv artifacts/s3fcp-windows-x86_64.exe/s3fcp.exe release/s3fcp-windows-x86_64.exe
+          chmod +x release/s3fcp-* 2>/dev/null || true
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
