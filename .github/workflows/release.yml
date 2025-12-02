@@ -57,8 +57,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          mv artifacts/s3fcp-linux-x86_64/s3fcp release/s3fcp-linux-x86_64
+          mv artifacts/s3fcp-linux-aarch64/s3fcp release/s3fcp-linux-aarch64
+          mv artifacts/s3fcp-macos-aarch64/s3fcp release/s3fcp-macos-aarch64
+          mv artifacts/s3fcp-windows-x86_64/s3fcp.exe release/s3fcp-windows-x86_64.exe
+          chmod +x release/s3fcp-*
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/*/*
+          files: release/*
           generate_release_notes: true
