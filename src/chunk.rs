@@ -44,6 +44,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_create_chunks_empty_file() {
+        let chunks = create_chunks(0, 100, None);
+        assert_eq!(chunks.len(), 0);
+    }
+
+    #[test]
     fn test_create_chunks_exact_multiple() {
         let chunks = create_chunks(1000, 100, None);
         assert_eq!(chunks.len(), 10);
@@ -59,6 +65,16 @@ mod tests {
         assert_eq!(chunks.len(), 11);
         assert_eq!(chunks[10].start, 1000);
         assert_eq!(chunks[10].end, 1049);
+    }
+
+    #[test]
+    fn test_create_chunks_non_conforming_chunks() {
+        let chunks = create_chunks(10, 7, None);
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].start, 0);
+        assert_eq!(chunks[0].end, 6);
+        assert_eq!(chunks[1].start, 7);
+        assert_eq!(chunks[1].end, 9);
     }
 
     #[test]

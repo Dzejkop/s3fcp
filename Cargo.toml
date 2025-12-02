@@ -12,6 +12,9 @@ aws-sdk-s3 = "1.55"
 tokio = { version = "1.40", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io"] }
 
+# Channels
+flume = "0.11"
+
 # Retry logic
 backon = "1.6.0"
 
