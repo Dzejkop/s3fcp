@@ -1,5 +1,3 @@
-use std::fmt;
-
 #[derive(Debug, thiserror::Error)]
 pub enum S3FcpError {
     #[error("Invalid S3 URI: {0}")]

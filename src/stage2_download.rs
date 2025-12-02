@@ -4,7 +4,7 @@ use crate::progress::ProgressTracker;
 use crate::s3_client::S3Client;
 use backon::{ExponentialBuilder, Retryable};
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 
 /// Stage 2: Download worker
 /// Pulls chunks from the queue and downloads them with retry logic
@@ -12,11 +12,21 @@ pub async fn download_worker(
     client: Arc<S3Client>,
     bucket: String,
     key: String,
-    mut rx: mpsc::Receiver<Chunk>,
+    rx: Arc<Mutex<mpsc::Receiver<Chunk>>>,
     output_tx: mpsc::Sender<DownloadedChunk>,
     progress: Arc<ProgressTracker>,
 ) -> Result<()> {
-    while let Some(chunk) = rx.recv().await {
+    loop {
+        // Lock the receiver and try to get the next chunk
+        let chunk = {
+            let mut rx_guard = rx.lock().await;
+            rx_guard.recv().await
+        };
+
+        // If no more chunks, exit
+        let Some(chunk) = chunk else {
+            break;
+        };
         // Download with retry logic using backon
         let data = (|| async {
             client
