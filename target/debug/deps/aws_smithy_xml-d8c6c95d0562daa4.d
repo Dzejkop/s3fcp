@@ -1,9 +1,0 @@
-/Users/jakub.trad/Projects/Worldcoin/s3fcp/target/debug/deps/aws_smithy_xml-d8c6c95d0562daa4.d: /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/lib.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/decode.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/encode.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/escape.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/unescape.rs
-
-/Users/jakub.trad/Projects/Worldcoin/s3fcp/target/debug/deps/libaws_smithy_xml-d8c6c95d0562daa4.rmeta: /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/lib.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/decode.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/encode.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/escape.rs /Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/unescape.rs
-
-/Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/lib.rs:
-/Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/decode.rs:
-/Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/encode.rs:
-/Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/escape.rs:
-/Users/jakub.trad/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-smithy-xml-0.60.12/src/unescape.rs:
