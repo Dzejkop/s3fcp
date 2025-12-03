@@ -72,14 +72,17 @@ async fn download_worker(
 }
 
 /// Stage 3: Ordered output writer
-/// Receives chunks (potentially out of order) and writes them to stdout in correct order
-async fn ordered_output_writer(
+/// Receives chunks (potentially out of order) and writes them in correct order
+async fn ordered_output_writer<W>(
     rx: flume::Receiver<DownloadedChunk>,
     total_chunks: usize,
-) -> Result<()> {
+    mut writer: W,
+) -> Result<W>
+where
+    W: AsyncWriteExt + Unpin,
+{
     let mut buffer: BTreeMap<usize, DownloadedChunk> = BTreeMap::new();
     let mut next_expected = 0;
-    let mut stdout = io::stdout();
 
     while let Ok(chunk) = rx.recv_async().await {
         // Insert the chunk into the buffer
@@ -87,23 +90,26 @@ async fn ordered_output_writer(
 
         // Drain all sequential chunks starting from next_expected
         while let Some(chunk) = buffer.remove(&next_expected) {
-            stdout.write_all(&chunk.data).await?;
+            writer.write_all(&chunk.data).await?;
             next_expected += 1;
 
             // If we've written all chunks, we're done
             if next_expected == total_chunks {
-                stdout.flush().await?;
-                return Ok(());
+                writer.flush().await?;
+                return Ok(writer);
             }
         }
     }
 
     // Ensure all data is flushed
-    stdout.flush().await?;
-    Ok(())
+    writer.flush().await?;
+    Ok(writer)
 }
 
-pub async fn download_and_stream(args: Args) -> Result<()> {
+pub async fn download_and_stream_to<W>(args: Args, writer: W) -> Result<W>
+where
+    W: AsyncWriteExt + Unpin + Send + 'static,
+{
     // Parse S3 URI
     let uri = S3Uri::parse(&args.s3_uri)?;
 
@@ -118,7 +124,7 @@ pub async fn download_and_stream(args: Args) -> Result<()> {
 
     // Handle edge case: empty file
     if metadata.content_length == 0 {
-        return Ok(());
+        return Ok(writer);
     }
 
     // Create chunks
@@ -150,7 +156,7 @@ pub async fn download_and_stream(args: Args) -> Result<()> {
     }
 
     // Spawn Stage 3: Ordered output
-    let output_handle = tokio::spawn(ordered_output_writer(output_rx, total_chunks));
+    let output_handle = tokio::spawn(ordered_output_writer(output_rx, total_chunks, writer));
 
     // Await Stage 1 completion and drop sender
     queue_handle.await??;
@@ -163,11 +169,16 @@ pub async fn download_and_stream(args: Args) -> Result<()> {
     // Drop output sender so output writer knows when to stop
     drop(output_tx);
 
-    // Await output stage completion
-    output_handle.await??;
+    // Await output stage completion and get writer back
+    let writer = output_handle.await??;
 
     // Finish progress
     progress.finish();
 
+    Ok(writer)
+}
+
+pub async fn download_and_stream(args: Args) -> Result<()> {
+    download_and_stream_to(args, io::stdout()).await?;
     Ok(())
 }

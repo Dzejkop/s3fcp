@@ -1,13 +1,5 @@
-mod chunk;
-mod cli;
-mod downloader;
-mod error;
-mod progress;
-mod s3_client;
-mod uri;
-
 use clap::Parser;
-use cli::Args;
+use s3fcp::{cli::Args, downloader};
 
 #[tokio::main]
 async fn main() {
