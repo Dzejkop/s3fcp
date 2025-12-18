@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "Fast file downloader with multi-part concurrent downloads from S3 and HTTP/HTTPS"
 license = "MIT"
+readme = "README.md"
 authors = ["Jakub Trąd"]
 repository = "https://github.com/Dzejkop/s3fcp"
 keywords = ["s3", "download", "http", "cli", "parallel"]
