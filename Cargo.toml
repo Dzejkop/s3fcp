@@ -41,7 +41,7 @@ futures = "0.3"
 bon = "3"
 
 # HTTP client
-reqwest = { version = "0.12", features = ["stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
 async-trait = "0.1"
 
 [dev-dependencies]
