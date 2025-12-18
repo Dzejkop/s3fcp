@@ -1,14 +1,16 @@
-# s3fcp - Fast S3 Object Downloader
+# s3fcp - Fast File Downloader
 
-A high-performance Rust CLI tool for downloading objects from S3 with multi-part concurrent downloads and ordered streaming to stdout.
+A high-performance Rust CLI tool for downloading files from S3 and HTTP/HTTPS with multi-part concurrent downloads and ordered streaming to stdout.
 
 ## Features
 
 - **Multi-part Downloads**: Split large files into chunks and download concurrently
+- **S3 and HTTP Support**: Download from S3 buckets or any HTTP/HTTPS URL
 - **Ordered Streaming**: Maintains correct byte order while streaming to stdout
 - **Configurable Concurrency**: Control the number of parallel download workers
 - **Configurable Chunk Size**: Adjust chunk size for optimal performance
 - **Version ID Support**: Download specific versions of S3 objects
+- **Range Request Support**: Uses HTTP Range requests when supported, falls back to single-stream otherwise
 - **Progress Tracking**: Real-time progress bar on stderr (can be silenced)
 - **Automatic Retries**: Exponential backoff retry logic for transient failures
 - **Memory Efficient**: Bounded memory usage regardless of file size
@@ -28,44 +30,78 @@ cargo build --release
 
 ## Usage
 
-Basic usage:
+### S3 Downloads
 
 ```bash
 # Download and stream to stdout
-s3fcp s3://bucket/key
+s3fcp s3 s3://bucket/key
 
 # Redirect to file
-s3fcp s3://bucket/key > output.bin
+s3fcp s3 s3://bucket/key > output.bin
 
 # Download specific version
-s3fcp s3://bucket/key --version-id v123
+s3fcp s3 s3://bucket/key --version-id v123
 
 # Increase concurrency
-s3fcp s3://bucket/key -c 16
+s3fcp s3 s3://bucket/key -c 16
 
 # Use larger chunks (human-readable sizes)
-s3fcp s3://bucket/key --chunk-size 16MB
-s3fcp s3://bucket/key --chunk-size 16MiB
-s3fcp s3://bucket/key --chunk-size 1GB
+s3fcp s3 s3://bucket/key --chunk-size 16MB
+```
 
-# Quiet mode (no progress bar)
-s3fcp s3://bucket/key -q
+### HTTP/HTTPS Downloads
+
+```bash
+# Download from HTTP URL
+s3fcp http https://example.com/file.bin > file.bin
+
+# With custom concurrency and chunk size
+s3fcp http https://example.com/large.iso -c 16 --chunk-size 16MB
+
+# Quiet mode
+s3fcp http https://example.com/data.json -q | jq '.field'
 ```
 
 ## CLI Options
 
 ```
-Usage: s3fcp [OPTIONS] <S3_URI>
+Usage: s3fcp <COMMAND>
+
+Commands:
+  s3    Download from S3
+  http  Download from HTTP/HTTPS URL
+  help  Print this message or the help of the given subcommand(s)
+```
+
+### S3 Subcommand
+
+```
+Usage: s3fcp s3 [OPTIONS] <URI>
 
 Arguments:
-  <S3_URI>  S3 URI in the format s3://bucket/key
+  <URI>  S3 URI in the format s3://bucket/key
 
 Options:
-  --version-id <VERSION_ID>      S3 object version ID for versioned objects
+      --version-id <VERSION_ID>    S3 object version ID for versioned objects
   -c, --concurrency <CONCURRENCY>  Number of concurrent download workers [default: 10]
-  --chunk-size <CHUNK_SIZE>      Chunk size (supports human-readable sizes: 8MB, 16MiB, 1GB, etc.) [default: 8MB]
-  -q, --quiet                    Quiet mode - suppress progress output
-  -h, --help                     Print help
+      --chunk-size <CHUNK_SIZE>    Chunk size [default: 8MB]
+  -q, --quiet                      Quiet mode - suppress progress output
+  -h, --help                       Print help
+```
+
+### HTTP Subcommand
+
+```
+Usage: s3fcp http [OPTIONS] <URL>
+
+Arguments:
+  <URL>  HTTP/HTTPS URL to download
+
+Options:
+  -c, --concurrency <CONCURRENCY>  Number of concurrent download workers [default: 10]
+      --chunk-size <CHUNK_SIZE>    Chunk size [default: 8MB]
+  -q, --quiet                      Quiet mode - suppress progress output
+  -h, --help                       Print help
 ```
 
 Supported chunk size formats:
@@ -84,7 +120,7 @@ s3fcp uses a 3-stage pipeline architecture:
 
 ### Stage 2: Download Workers
 - Worker pool (size = concurrency)
-- Downloads chunks using S3 range GET requests
+- Downloads chunks using Range GET requests
 - Automatic retry with exponential backoff
 - Updates progress tracker
 
@@ -93,6 +129,10 @@ s3fcp uses a 3-stage pipeline architecture:
 - Buffers chunks in BTreeMap
 - Streams to stdout in correct order
 - Memory-bounded buffering
+
+### HTTP Range Support
+
+For HTTP downloads, s3fcp checks if the server supports Range requests via the `Accept-Ranges` header. If supported, it uses chunked parallel downloads. Otherwise, it falls back to a single-stream download.
 
 ## Performance
 
@@ -106,30 +146,30 @@ With defaults (concurrency=10, chunk_size=8MB):
 Max Memory ≈ 160MB
 ```
 
-This holds regardless of the S3 object size.
+This holds regardless of the file size.
 
 ## AWS Credentials
 
-s3fcp uses the standard AWS credential chain:
+For S3 downloads, s3fcp uses the standard AWS credential chain:
 - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 - AWS credentials file (`~/.aws/credentials`)
 - IAM roles (when running on EC2/ECS)
 
 ## Examples
 
-Download a 1GB file with 16 concurrent workers:
+Download a 1GB file from S3 with 16 concurrent workers:
 ```bash
-s3fcp s3://my-bucket/large-file.bin -c 16 > large-file.bin
+s3fcp s3 s3://my-bucket/large-file.bin -c 16 > large-file.bin
 ```
 
-Pipe directly to another command:
+Download from HTTP and pipe to another command:
 ```bash
-s3fcp s3://my-bucket/data.gz | gunzip | grep "pattern"
+s3fcp http https://example.com/data.gz -q | gunzip | grep "pattern"
 ```
 
 Quiet download for scripts:
 ```bash
-s3fcp s3://my-bucket/data.json -q | jq '.field'
+s3fcp s3 s3://my-bucket/data.json -q | jq '.field'
 ```
 
 ## Development
