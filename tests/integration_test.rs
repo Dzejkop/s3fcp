@@ -2,6 +2,9 @@ use aws_config::BehaviorVersion;
 use aws_sdk_s3::config::{Credentials, Region};
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client;
+use s3fcp::cli::DownloadArgs;
+use s3fcp::downloader::download;
+use s3fcp::s3_client::S3Client;
 use std::sync::Arc;
 use testcontainers::{runners::AsyncRunner, ContainerAsync, ImageExt};
 use testcontainers_modules::localstack::LocalStack;
@@ -46,6 +49,25 @@ async fn create_test_client() -> (Client, String) {
     (Client::new(&config), endpoint_url)
 }
 
+/// Helper to create an s3fcp S3Client configured for LocalStack
+async fn create_s3fcp_client(endpoint: &str, bucket: String, key: String) -> Arc<S3Client> {
+    let credentials = Credentials::new("test", "test", None, None, "test");
+
+    let config = aws_config::defaults(BehaviorVersion::latest())
+        .credentials_provider(credentials)
+        .region(Region::new("us-east-1"))
+        .endpoint_url(endpoint)
+        .load()
+        .await;
+
+    Arc::new(S3Client::new(
+        aws_sdk_s3::Client::new(&config),
+        bucket,
+        key,
+        None,
+    ))
+}
+
 /// Upload test data to S3
 async fn upload_test_file(
     client: &Client,
@@ -84,23 +106,13 @@ async fn test_download_small_file() -> anyhow::Result<()> {
     // Upload test file
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
-    // Set environment variables for download_and_stream
-    std::env::set_var("AWS_ENDPOINT_URL", &endpoint);
-    std::env::set_var("AWS_ACCESS_KEY_ID", "test");
-    std::env::set_var("AWS_SECRET_ACCESS_KEY", "test");
-    std::env::set_var("AWS_REGION", "us-east-1");
+    // Create s3fcp client
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
-    // Prepare args for downloader
-    let args = s3fcp::cli::Args {
-        s3_uri: format!("s3://{}/{}", bucket, key),
-        version_id: None,
-        concurrency: 2,
-        chunk_size: 5 * 1024 * 1024, // 5MB chunks
-        quiet: true,
-    };
+    let args = DownloadArgs::builder().concurrency(2).quiet(true).build();
 
     // Download to a buffer
-    let output = s3fcp::downloader::download_and_stream_to(args, Vec::new()).await?;
+    let output = download(s3fcp_client, args, Vec::new()).await?;
 
     // Verify downloaded content matches
     assert_eq!(output, test_content);
@@ -124,22 +136,17 @@ async fn test_download_large_file_with_chunks() -> anyhow::Result<()> {
     // Upload test file
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
-    // Set environment variables
-    std::env::set_var("AWS_ENDPOINT_URL", &endpoint);
-    std::env::set_var("AWS_ACCESS_KEY_ID", "test");
-    std::env::set_var("AWS_SECRET_ACCESS_KEY", "test");
-    std::env::set_var("AWS_REGION", "us-east-1");
+    // Create s3fcp client
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
     // Download with smaller chunks to test chunking logic
-    let args = s3fcp::cli::Args {
-        s3_uri: format!("s3://{}/{}", bucket, key),
-        version_id: None,
-        concurrency: 4,
-        chunk_size: 2 * 1024 * 1024, // 2MB chunks - should create 5 chunks
-        quiet: true,
-    };
+    let args = DownloadArgs::builder()
+        .concurrency(4)
+        .chunk_size(2 * 1024 * 1024) // 2MB chunks - should create 5 chunks
+        .quiet(true)
+        .build();
 
-    let output = s3fcp::downloader::download_and_stream_to(args, Vec::new()).await?;
+    let output = download(s3fcp_client, args, Vec::new()).await?;
 
     // Verify downloaded content matches exactly
     assert_eq!(output.len(), test_content.len());
@@ -158,21 +165,12 @@ async fn test_download_empty_file() -> anyhow::Result<()> {
     // Upload empty file
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
-    // Set environment variables
-    std::env::set_var("AWS_ENDPOINT_URL", &endpoint);
-    std::env::set_var("AWS_ACCESS_KEY_ID", "test");
-    std::env::set_var("AWS_SECRET_ACCESS_KEY", "test");
-    std::env::set_var("AWS_REGION", "us-east-1");
+    // Create s3fcp client
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
-    let args = s3fcp::cli::Args {
-        s3_uri: format!("s3://{}/{}", bucket, key),
-        version_id: None,
-        concurrency: 2,
-        chunk_size: 5 * 1024 * 1024,
-        quiet: true,
-    };
+    let args = DownloadArgs::builder().quiet(true).build();
 
-    let output = s3fcp::downloader::download_and_stream_to(args, Vec::new()).await?;
+    let output = download(s3fcp_client, args, Vec::new()).await?;
 
     // Verify empty output
     assert_eq!(output, test_content);
@@ -189,20 +187,12 @@ async fn test_download_single_byte() -> anyhow::Result<()> {
 
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
-    std::env::set_var("AWS_ENDPOINT_URL", &endpoint);
-    std::env::set_var("AWS_ACCESS_KEY_ID", "test");
-    std::env::set_var("AWS_SECRET_ACCESS_KEY", "test");
-    std::env::set_var("AWS_REGION", "us-east-1");
+    // Create s3fcp client
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
-    let args = s3fcp::cli::Args {
-        s3_uri: format!("s3://{}/{}", bucket, key),
-        version_id: None,
-        concurrency: 1,
-        chunk_size: 5 * 1024 * 1024,
-        quiet: true,
-    };
+    let args = DownloadArgs::builder().concurrency(1).quiet(true).build();
 
-    let output = s3fcp::downloader::download_and_stream_to(args, Vec::new()).await?;
+    let output = download(s3fcp_client, args, Vec::new()).await?;
 
     assert_eq!(output, test_content);
 

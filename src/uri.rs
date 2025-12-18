@@ -6,6 +6,24 @@ pub struct S3Uri {
     pub key: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct HttpUri {
+    pub url: String,
+}
+
+impl HttpUri {
+    pub fn parse(url: &str) -> Result<Self> {
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            return Err(S3FcpError::InvalidUri(
+                "URL must start with http:// or https://".to_string(),
+            ));
+        }
+        Ok(HttpUri {
+            url: url.to_string(),
+        })
+    }
+}
+
 impl S3Uri {
     pub fn parse(uri: &str) -> Result<Self> {
         // Check for s3:// prefix
@@ -77,6 +95,24 @@ mod tests {
     #[test]
     fn test_invalid_uri_empty_key() {
         let result = S3Uri::parse("s3://my-bucket/");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_http_uri_https() {
+        let uri = HttpUri::parse("https://example.com/file.txt").unwrap();
+        assert_eq!(uri.url, "https://example.com/file.txt");
+    }
+
+    #[test]
+    fn test_http_uri_http() {
+        let uri = HttpUri::parse("http://example.com/file.txt").unwrap();
+        assert_eq!(uri.url, "http://example.com/file.txt");
+    }
+
+    #[test]
+    fn test_http_uri_invalid_scheme() {
+        let result = HttpUri::parse("ftp://example.com/file.txt");
         assert!(result.is_err());
     }
 }
