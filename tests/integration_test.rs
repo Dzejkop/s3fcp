@@ -50,11 +50,7 @@ async fn create_test_client() -> (Client, String) {
 }
 
 /// Helper to create an s3fcp S3Client configured for LocalStack
-async fn create_s3fcp_client(
-    endpoint: &str,
-    bucket: String,
-    key: String,
-) -> Arc<S3Client> {
+async fn create_s3fcp_client(endpoint: &str, bucket: String, key: String) -> Arc<S3Client> {
     let credentials = Credentials::new("test", "test", None, None, "test");
 
     let config = aws_config::defaults(BehaviorVersion::latest())
@@ -111,8 +107,7 @@ async fn test_download_small_file() -> anyhow::Result<()> {
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
     // Create s3fcp client
-    let s3fcp_client =
-        create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
     let args = DownloadArgs::builder().concurrency(2).quiet(true).build();
 
@@ -142,8 +137,7 @@ async fn test_download_large_file_with_chunks() -> anyhow::Result<()> {
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
     // Create s3fcp client
-    let s3fcp_client =
-        create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
     // Download with smaller chunks to test chunking logic
     let args = DownloadArgs::builder()
@@ -172,8 +166,7 @@ async fn test_download_empty_file() -> anyhow::Result<()> {
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
     // Create s3fcp client
-    let s3fcp_client =
-        create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
     let args = DownloadArgs::builder().quiet(true).build();
 
@@ -195,8 +188,7 @@ async fn test_download_single_byte() -> anyhow::Result<()> {
     upload_test_file(&client, bucket, key, test_content.clone()).await?;
 
     // Create s3fcp client
-    let s3fcp_client =
-        create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
+    let s3fcp_client = create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
     let args = DownloadArgs::builder().concurrency(1).quiet(true).build();
 

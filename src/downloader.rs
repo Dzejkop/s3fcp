@@ -204,10 +204,7 @@ where
     }
 }
 
-pub async fn download_to_stdout(
-    client: Arc<dyn DownloadClient>,
-    args: DownloadArgs,
-) -> Result<()> {
+pub async fn download_to_stdout(client: Arc<dyn DownloadClient>, args: DownloadArgs) -> Result<()> {
     download(client, args, io::stdout()).await?;
     Ok(())
 }

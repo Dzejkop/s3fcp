@@ -24,12 +24,7 @@ pub struct S3Client {
 }
 
 impl S3Client {
-    pub fn new(
-        client: Client,
-        bucket: String,
-        key: String,
-        version_id: Option<String>,
-    ) -> Self {
+    pub fn new(client: Client, bucket: String, key: String, version_id: Option<String>) -> Self {
         Self {
             client,
             bucket,
@@ -97,11 +92,7 @@ impl DownloadClient for S3Client {
     }
 
     async fn get_full(&self) -> Result<Bytes> {
-        let mut request = self
-            .client
-            .get_object()
-            .bucket(&self.bucket)
-            .key(&self.key);
+        let mut request = self.client.get_object().bucket(&self.bucket).key(&self.key);
 
         if let Some(version) = &self.version_id {
             request = request.version_id(version);
