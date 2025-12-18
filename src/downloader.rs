@@ -1,9 +1,8 @@
 use crate::chunk::{create_chunks, Chunk, DownloadedChunk};
-use crate::cli::Args;
+use crate::cli::DownloadArgs;
 use crate::error::Result;
 use crate::progress::ProgressTracker;
-use crate::s3_client::S3Client;
-use crate::uri::S3Uri;
+use crate::s3_client::DownloadClient;
 use backon::{ExponentialBuilder, Retryable};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -23,33 +22,21 @@ async fn queue_chunks(chunks: Vec<Chunk>, tx: flume::Sender<Chunk>) -> Result<()
 /// Stage 2: Download worker
 /// Pulls chunks from the queue and downloads them with retry logic
 async fn download_worker(
-    client: Arc<S3Client>,
-    bucket: String,
-    key: String,
+    client: Arc<dyn DownloadClient>,
     rx: flume::Receiver<Chunk>,
     output_tx: flume::Sender<DownloadedChunk>,
     progress: Arc<ProgressTracker>,
 ) -> Result<()> {
     while let Ok(chunk) = rx.recv_async().await {
         // Download with retry logic using backon
-        let data = (|| async {
-            client
-                .get_object_range(
-                    &bucket,
-                    &key,
-                    chunk.start,
-                    chunk.end,
-                    chunk.version_id.clone(),
-                )
-                .await
-        })
-        .retry(
-            ExponentialBuilder::default()
-                .with_max_times(3)
-                .with_min_delay(std::time::Duration::from_millis(100))
-                .with_max_delay(std::time::Duration::from_secs(5)),
-        )
-        .await?;
+        let data = (|| async { client.get_range(chunk.start, chunk.end).await })
+            .retry(
+                ExponentialBuilder::default()
+                    .with_max_times(3)
+                    .with_min_delay(std::time::Duration::from_millis(100))
+                    .with_max_delay(std::time::Duration::from_secs(5)),
+            )
+            .await?;
 
         let data_len = data.len() as u64;
         progress.increment(data_len);
@@ -106,33 +93,27 @@ where
     Ok(writer)
 }
 
-pub async fn download_and_stream_to<W>(args: Args, writer: W) -> Result<W>
+/// Download using chunked parallel requests
+pub async fn download_chunked<W>(
+    client: Arc<dyn DownloadClient>,
+    args: DownloadArgs,
+    content_length: u64,
+    writer: W,
+) -> Result<W>
 where
     W: AsyncWriteExt + Unpin + Send + 'static,
 {
-    // Parse S3 URI
-    let uri = S3Uri::parse(&args.s3_uri)?;
-
-    // Initialize AWS S3 client
-    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let client = Arc::new(S3Client::new(aws_sdk_s3::Client::new(&config)));
-
-    // HEAD request to get content_length
-    let metadata = client
-        .head_object(&uri.bucket, &uri.key, args.version_id.clone())
-        .await?;
-
     // Handle edge case: empty file
-    if metadata.content_length == 0 {
+    if content_length == 0 {
         return Ok(writer);
     }
 
     // Create chunks
-    let chunks = create_chunks(metadata.content_length, args.chunk_size, args.version_id);
+    let chunks = create_chunks(content_length, args.chunk_size);
     let total_chunks = chunks.len();
 
     // Setup progress tracker
-    let progress = ProgressTracker::new(metadata.content_length, args.quiet);
+    let progress = ProgressTracker::new(content_length, args.quiet);
 
     // Setup channels for the 3 stages
     let (chunk_tx, chunk_rx) = flume::bounded(args.concurrency);
@@ -146,8 +127,6 @@ where
     for _ in 0..args.concurrency {
         let worker_handle = tokio::spawn(download_worker(
             client.clone(),
-            uri.bucket.clone(),
-            uri.key.clone(),
             chunk_rx.clone(),
             output_tx.clone(),
             progress.clone(),
@@ -178,7 +157,57 @@ where
     Ok(writer)
 }
 
-pub async fn download_and_stream(args: Args) -> Result<()> {
-    download_and_stream_to(args, io::stdout()).await?;
+/// Download using a single stream (for servers without Range support)
+pub async fn download_single_stream<W>(
+    client: Arc<dyn DownloadClient>,
+    content_length: u64,
+    quiet: bool,
+    mut writer: W,
+) -> Result<W>
+where
+    W: AsyncWriteExt + Unpin,
+{
+    // Handle edge case: empty file
+    if content_length == 0 {
+        return Ok(writer);
+    }
+
+    let progress = ProgressTracker::new(content_length, quiet);
+
+    // Download entire file in a single request
+    let data = client.get_full().await?;
+    progress.increment(data.len() as u64);
+    writer.write_all(&data).await?;
+    writer.flush().await?;
+
+    progress.finish();
+
+    Ok(writer)
+}
+
+/// Main download function - chooses strategy based on server capabilities
+pub async fn download<W>(
+    client: Arc<dyn DownloadClient>,
+    args: DownloadArgs,
+    writer: W,
+) -> Result<W>
+where
+    W: AsyncWriteExt + Unpin + Send + 'static,
+{
+    // HEAD request to get content_length and check Range support
+    let metadata = client.head().await?;
+
+    if metadata.supports_range {
+        download_chunked(client, args, metadata.content_length, writer).await
+    } else {
+        download_single_stream(client, metadata.content_length, args.quiet, writer).await
+    }
+}
+
+pub async fn download_to_stdout(
+    client: Arc<dyn DownloadClient>,
+    args: DownloadArgs,
+) -> Result<()> {
+    download(client, args, io::stdout()).await?;
     Ok(())
 }

@@ -1,11 +1,25 @@
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug)]
 #[command(name = "s3fcp")]
-#[command(about = "Fast S3 object downloader with multi-part support", long_about = None)]
-pub struct Args {
+#[command(about = "Fast file downloader with multi-part support", long_about = None)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Download from S3
+    S3(S3Args),
+    /// Download from HTTP/HTTPS URL
+    Http(HttpArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct S3Args {
     /// S3 URI in the format s3://bucket/key
-    pub s3_uri: String,
+    pub uri: String,
 
     /// S3 object version ID for versioned objects
     #[arg(long)]
@@ -22,6 +36,52 @@ pub struct Args {
     /// Quiet mode - suppress progress output
     #[arg(short = 'q', long)]
     pub quiet: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct HttpArgs {
+    /// HTTP/HTTPS URL to download
+    pub url: String,
+
+    /// Number of concurrent download workers
+    #[arg(short = 'c', long, default_value = "10")]
+    pub concurrency: usize,
+
+    /// Chunk size (supports human-readable sizes: 8MB, 16MiB, 1GB, etc.)
+    #[arg(long, default_value = "8MB", value_parser = parse_chunk_size)]
+    pub chunk_size: usize,
+
+    /// Quiet mode - suppress progress output
+    #[arg(short = 'q', long)]
+    pub quiet: bool,
+}
+
+/// Common download arguments shared between S3 and HTTP
+#[derive(Debug, Clone)]
+pub struct DownloadArgs {
+    pub concurrency: usize,
+    pub chunk_size: usize,
+    pub quiet: bool,
+}
+
+impl From<&S3Args> for DownloadArgs {
+    fn from(args: &S3Args) -> Self {
+        Self {
+            concurrency: args.concurrency,
+            chunk_size: args.chunk_size,
+            quiet: args.quiet,
+        }
+    }
+}
+
+impl From<&HttpArgs> for DownloadArgs {
+    fn from(args: &HttpArgs) -> Self {
+        Self {
+            concurrency: args.concurrency,
+            chunk_size: args.chunk_size,
+            quiet: args.quiet,
+        }
+    }
 }
 
 fn parse_chunk_size(s: &str) -> Result<usize, String> {
