@@ -57,10 +57,13 @@ pub struct HttpArgs {
 }
 
 /// Common download arguments shared between S3 and HTTP
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, bon::Builder)]
 pub struct DownloadArgs {
+    #[builder(default = 10)]
     pub concurrency: usize,
+    #[builder(default = 8 * 1024 * 1024)]
     pub chunk_size: usize,
+    #[builder(default)]
     pub quiet: bool,
 }
 

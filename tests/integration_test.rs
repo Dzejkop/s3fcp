@@ -114,11 +114,7 @@ async fn test_download_small_file() -> anyhow::Result<()> {
     let s3fcp_client =
         create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
-    let args = DownloadArgs {
-        concurrency: 2,
-        chunk_size: 5 * 1024 * 1024, // 5MB chunks
-        quiet: true,
-    };
+    let args = DownloadArgs::builder().concurrency(2).quiet(true).build();
 
     // Download to a buffer
     let output = download(s3fcp_client, args, Vec::new()).await?;
@@ -150,11 +146,11 @@ async fn test_download_large_file_with_chunks() -> anyhow::Result<()> {
         create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
     // Download with smaller chunks to test chunking logic
-    let args = DownloadArgs {
-        concurrency: 4,
-        chunk_size: 2 * 1024 * 1024, // 2MB chunks - should create 5 chunks
-        quiet: true,
-    };
+    let args = DownloadArgs::builder()
+        .concurrency(4)
+        .chunk_size(2 * 1024 * 1024) // 2MB chunks - should create 5 chunks
+        .quiet(true)
+        .build();
 
     let output = download(s3fcp_client, args, Vec::new()).await?;
 
@@ -179,11 +175,7 @@ async fn test_download_empty_file() -> anyhow::Result<()> {
     let s3fcp_client =
         create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
-    let args = DownloadArgs {
-        concurrency: 2,
-        chunk_size: 5 * 1024 * 1024,
-        quiet: true,
-    };
+    let args = DownloadArgs::builder().quiet(true).build();
 
     let output = download(s3fcp_client, args, Vec::new()).await?;
 
@@ -206,11 +198,7 @@ async fn test_download_single_byte() -> anyhow::Result<()> {
     let s3fcp_client =
         create_s3fcp_client(&endpoint, bucket.to_string(), key.to_string()).await;
 
-    let args = DownloadArgs {
-        concurrency: 1,
-        chunk_size: 5 * 1024 * 1024,
-        quiet: true,
-    };
+    let args = DownloadArgs::builder().concurrency(1).quiet(true).build();
 
     let output = download(s3fcp_client, args, Vec::new()).await?;
 

@@ -8,14 +8,6 @@ use tempfile::TempDir;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
-fn test_args(concurrency: usize, chunk_size: usize) -> DownloadArgs {
-    DownloadArgs {
-        concurrency,
-        chunk_size,
-        quiet: true,
-    }
-}
-
 /// Start a static file server and return (base_url, temp_dir)
 async fn start_file_server() -> (String, TempDir) {
     let temp_dir = TempDir::new().unwrap();
@@ -45,7 +37,8 @@ async fn test_http_download_small_file() -> anyhow::Result<()> {
     create_test_file(&temp_dir, "test.txt", content);
 
     let client = Arc::new(HttpClient::new(format!("{}/test.txt", base_url)));
-    let output = download(client, test_args(2, 5 * 1024 * 1024), Vec::new()).await?;
+    let args = DownloadArgs::builder().concurrency(2).quiet(true).build();
+    let output = download(client, args, Vec::new()).await?;
 
     assert_eq!(output, content);
     Ok(())
@@ -61,7 +54,12 @@ async fn test_http_download_chunked_with_range() -> anyhow::Result<()> {
 
     let client = Arc::new(HttpClient::new(format!("{}/large.bin", base_url)));
     // Use 256KB chunks = 4 chunks for 1MB
-    let output = download(client, test_args(4, 256 * 1024), Vec::new()).await?;
+    let args = DownloadArgs::builder()
+        .concurrency(4)
+        .chunk_size(256 * 1024)
+        .quiet(true)
+        .build();
+    let output = download(client, args, Vec::new()).await?;
 
     assert_eq!(output.len(), content.len());
     assert_eq!(output, content);
@@ -74,7 +72,8 @@ async fn test_http_download_empty_file() -> anyhow::Result<()> {
     create_test_file(&temp_dir, "empty.txt", b"");
 
     let client = Arc::new(HttpClient::new(format!("{}/empty.txt", base_url)));
-    let output = download(client, test_args(2, 5 * 1024 * 1024), Vec::new()).await?;
+    let args = DownloadArgs::builder().quiet(true).build();
+    let output = download(client, args, Vec::new()).await?;
 
     assert!(output.is_empty());
     Ok(())
@@ -86,7 +85,8 @@ async fn test_http_download_single_byte() -> anyhow::Result<()> {
     create_test_file(&temp_dir, "single.bin", &[42u8]);
 
     let client = Arc::new(HttpClient::new(format!("{}/single.bin", base_url)));
-    let output = download(client, test_args(1, 5 * 1024 * 1024), Vec::new()).await?;
+    let args = DownloadArgs::builder().concurrency(1).quiet(true).build();
+    let output = download(client, args, Vec::new()).await?;
 
     assert_eq!(output, vec![42u8]);
     Ok(())
@@ -97,7 +97,8 @@ async fn test_http_download_404() -> anyhow::Result<()> {
     let (base_url, _temp_dir) = start_file_server().await;
 
     let client = Arc::new(HttpClient::new(format!("{}/not-found.txt", base_url)));
-    let result = download(client, test_args(2, 5 * 1024 * 1024), Vec::new()).await;
+    let args = DownloadArgs::builder().quiet(true).build();
+    let result = download(client, args, Vec::new()).await;
 
     assert!(result.is_err());
     Ok(())
