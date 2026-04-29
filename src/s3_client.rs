@@ -24,7 +24,13 @@ pub struct S3Client {
 }
 
 impl S3Client {
-    pub fn new(client: Client, bucket: String, key: String, version_id: Option<String>) -> Self {
+    #[must_use]
+    pub const fn new(
+        client: Client,
+        bucket: String,
+        key: String,
+        version_id: Option<String>,
+    ) -> Self {
         Self {
             client,
             bucket,
@@ -50,12 +56,13 @@ impl DownloadClient for S3Client {
         let response = request
             .send()
             .await
-            .map_err(|e| S3FcpError::S3Error(format!("HEAD request failed: {}", e)))?;
+            .map_err(|e| S3FcpError::S3Error(format!("HEAD request failed: {e}")))?;
 
         let content_length = response
             .content_length()
-            .ok_or_else(|| S3FcpError::S3Error("Content-Length header missing".to_string()))?
-            as u64;
+            .ok_or_else(|| S3FcpError::S3Error("Content-Length header missing".to_string()))?;
+        let content_length = u64::try_from(content_length)
+            .map_err(|_| S3FcpError::S3Error("Content-Length cannot be negative".to_string()))?;
 
         Ok(ObjectMetadata {
             content_length,
@@ -64,7 +71,7 @@ impl DownloadClient for S3Client {
     }
 
     async fn get_range(&self, start: u64, end: u64) -> Result<Bytes> {
-        let range = format!("bytes={}-{}", start, end);
+        let range = format!("bytes={start}-{end}");
         let mut request = self
             .client
             .get_object()
@@ -79,13 +86,13 @@ impl DownloadClient for S3Client {
         let response = request
             .send()
             .await
-            .map_err(|e| S3FcpError::S3Error(format!("GET request failed: {}", e)))?;
+            .map_err(|e| S3FcpError::S3Error(format!("GET request failed: {e}")))?;
 
         let data = response
             .body
             .collect()
             .await
-            .map_err(|e| S3FcpError::S3Error(format!("Failed to read response body: {}", e)))?
+            .map_err(|e| S3FcpError::S3Error(format!("Failed to read response body: {e}")))?
             .into_bytes();
 
         Ok(data)
@@ -101,13 +108,13 @@ impl DownloadClient for S3Client {
         let response = request
             .send()
             .await
-            .map_err(|e| S3FcpError::S3Error(format!("GET request failed: {}", e)))?;
+            .map_err(|e| S3FcpError::S3Error(format!("GET request failed: {e}")))?;
 
         let data = response
             .body
             .collect()
             .await
-            .map_err(|e| S3FcpError::S3Error(format!("Failed to read response body: {}", e)))?
+            .map_err(|e| S3FcpError::S3Error(format!("Failed to read response body: {e}")))?
             .into_bytes();
 
         Ok(data)

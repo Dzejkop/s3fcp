@@ -1,6 +1,6 @@
 [package]
 name = "s3fcp"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 description = "Fast file downloader with multi-part concurrent downloads from S3 and HTTP/HTTPS"
 license = "MIT"
@@ -41,8 +41,21 @@ futures = "0.3"
 bon = "3"
 
 # HTTP client
-reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = [
+  "stream",
+  "rustls-tls",
+] }
 async-trait = "0.1"
+
+[lints.rust]
+warnings = "deny"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+nursery = "deny"
+cargo = "deny"
+multiple_crate_versions = { level = "allow", priority = 1 }
 
 [dev-dependencies]
 testcontainers = "0.26"

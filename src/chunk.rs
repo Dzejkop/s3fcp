@@ -14,6 +14,7 @@ pub struct DownloadedChunk {
 }
 
 /// Create chunks from content length and chunk size
+#[must_use]
 pub fn create_chunks(content_length: u64, chunk_size: usize) -> Vec<Chunk> {
     let mut chunks = Vec::new();
     let mut start = 0u64;

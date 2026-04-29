@@ -10,10 +10,10 @@ use testcontainers::{runners::AsyncRunner, ContainerAsync, ImageExt};
 use testcontainers_modules::localstack::LocalStack;
 use tokio::sync::OnceCell;
 
-/// Shared LocalStack container for all tests
+/// Shared `LocalStack` container for all tests
 static LOCALSTACK: OnceCell<Arc<ContainerAsync<LocalStack>>> = OnceCell::const_new();
 
-/// Get or initialize the shared LocalStack container
+/// Get or initialize the shared `LocalStack` container
 async fn get_localstack() -> Arc<ContainerAsync<LocalStack>> {
     LOCALSTACK
         .get_or_init(|| async {
@@ -28,14 +28,14 @@ async fn get_localstack() -> Arc<ContainerAsync<LocalStack>> {
         .clone()
 }
 
-/// Helper to create an S3 client configured for LocalStack
+/// Helper to create an S3 client configured for `LocalStack`
 async fn create_test_client() -> (Client, String) {
     let localstack = get_localstack().await;
     let port = localstack
         .get_host_port_ipv4(4566)
         .await
         .expect("Failed to get port");
-    let endpoint_url = format!("http://127.0.0.1:{}", port);
+    let endpoint_url = format!("http://127.0.0.1:{port}");
 
     let credentials = Credentials::new("test", "test", None, None, "test");
 
@@ -49,7 +49,7 @@ async fn create_test_client() -> (Client, String) {
     (Client::new(&config), endpoint_url)
 }
 
-/// Helper to create an s3fcp S3Client configured for LocalStack
+/// Helper to create an s3fcp `S3Client` configured for `LocalStack`
 async fn create_s3fcp_client(endpoint: &str, bucket: String, key: String) -> Arc<S3Client> {
     let credentials = Credentials::new("test", "test", None, None, "test");
 
@@ -81,7 +81,7 @@ async fn upload_test_file(
         .bucket(bucket)
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to create bucket: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create bucket: {e}"))?;
 
     // Upload file
     client
@@ -91,7 +91,7 @@ async fn upload_test_file(
         .body(ByteStream::from(content))
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to upload file: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to upload file: {e}"))?;
 
     Ok(())
 }
@@ -130,7 +130,7 @@ async fn test_download_large_file_with_chunks() -> anyhow::Result<()> {
     let chunk_size = 1024 * 1024; // 1MB
     let mut test_content = Vec::with_capacity(chunk_size * 10);
     for i in 0..(chunk_size * 10) {
-        test_content.push((i % 256) as u8);
+        test_content.push(u8::try_from(i % 256).expect("modulo 256 fits in u8"));
     }
 
     // Upload test file

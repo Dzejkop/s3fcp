@@ -17,7 +17,7 @@ async fn main() {
             let uri = match S3Uri::parse(&args.uri) {
                 Ok(uri) => uri,
                 Err(e) => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                     std::process::exit(1);
                 }
             };
@@ -37,7 +37,7 @@ async fn main() {
             let uri = match HttpUri::parse(&args.url) {
                 Ok(uri) => uri,
                 Err(e) => {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                     std::process::exit(1);
                 }
             };
@@ -49,7 +49,7 @@ async fn main() {
     };
 
     if let Err(e) = result {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         std::process::exit(1);
     }
 }

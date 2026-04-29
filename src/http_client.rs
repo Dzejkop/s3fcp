@@ -12,6 +12,7 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
+    #[must_use]
     pub fn new(url: String) -> Self {
         Self {
             client: Client::new(),
@@ -43,8 +44,7 @@ impl DownloadClient for HttpClient {
             .headers()
             .get(ACCEPT_RANGES)
             .and_then(|v| v.to_str().ok())
-            .map(|v| v == "bytes")
-            .unwrap_or(false);
+            .is_some_and(|v| v == "bytes");
 
         Ok(ObjectMetadata {
             content_length,
@@ -53,7 +53,7 @@ impl DownloadClient for HttpClient {
     }
 
     async fn get_range(&self, start: u64, end: u64) -> Result<Bytes> {
-        let range = format!("bytes={}-{}", start, end);
+        let range = format!("bytes={start}-{end}");
         let response = self
             .client
             .get(&self.url)

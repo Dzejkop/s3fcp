@@ -12,19 +12,27 @@ pub struct HttpUri {
 }
 
 impl HttpUri {
+    /// Parse and validate an HTTP/HTTPS URL.
+    ///
+    /// # Errors
+    /// Returns an error if the URL does not start with `http://` or `https://`.
     pub fn parse(url: &str) -> Result<Self> {
         if !url.starts_with("http://") && !url.starts_with("https://") {
             return Err(S3FcpError::InvalidUri(
                 "URL must start with http:// or https://".to_string(),
             ));
         }
-        Ok(HttpUri {
+        Ok(Self {
             url: url.to_string(),
         })
     }
 }
 
 impl S3Uri {
+    /// Parse and validate an `s3://bucket/key` URI.
+    ///
+    /// # Errors
+    /// Returns an error if the URI is missing the `s3://` prefix, bucket, or key.
     pub fn parse(uri: &str) -> Result<Self> {
         // Check for s3:// prefix
         if !uri.starts_with("s3://") {
@@ -58,7 +66,7 @@ impl S3Uri {
             ));
         }
 
-        Ok(S3Uri { bucket, key })
+        Ok(Self { bucket, key })
     }
 }
 

@@ -7,14 +7,35 @@ use backon::{ExponentialBuilder, Retryable};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{self, AsyncWriteExt};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::task::JoinSet;
+
+struct ScheduledChunk {
+    chunk: Chunk,
+    permit: OwnedSemaphorePermit,
+}
+
+struct BufferedChunk {
+    chunk: DownloadedChunk,
+    _permit: OwnedSemaphorePermit,
+}
 
 /// Stage 1: Queue up download jobs
 /// Sends chunks to a bounded channel, providing natural backpressure
-async fn queue_chunks(chunks: Vec<Chunk>, tx: flume::Sender<Chunk>) -> Result<()> {
+async fn queue_chunks(
+    chunks: Vec<Chunk>,
+    tx: flume::Sender<ScheduledChunk>,
+    window: Arc<Semaphore>,
+) -> Result<()> {
     for chunk in chunks {
-        tx.send_async(chunk).await.map_err(|e| {
-            crate::error::S3FcpError::DownloadFailed(format!("Failed to queue chunk: {}", e))
+        let permit = window.clone().acquire_owned().await.map_err(|e| {
+            crate::error::S3FcpError::DownloadFailed(format!("Failed to acquire chunk permit: {e}"))
         })?;
+        tx.send_async(ScheduledChunk { chunk, permit })
+            .await
+            .map_err(|e| {
+                crate::error::S3FcpError::DownloadFailed(format!("Failed to queue chunk: {e}"))
+            })?;
     }
     Ok(())
 }
@@ -23,11 +44,12 @@ async fn queue_chunks(chunks: Vec<Chunk>, tx: flume::Sender<Chunk>) -> Result<()
 /// Pulls chunks from the queue and downloads them with retry logic
 async fn download_worker(
     client: Arc<dyn DownloadClient>,
-    rx: flume::Receiver<Chunk>,
-    output_tx: flume::Sender<DownloadedChunk>,
+    rx: flume::Receiver<ScheduledChunk>,
+    output_tx: flume::Sender<BufferedChunk>,
     progress: Arc<ProgressTracker>,
 ) -> Result<()> {
-    while let Ok(chunk) = rx.recv_async().await {
+    while let Ok(scheduled) = rx.recv_async().await {
+        let chunk = scheduled.chunk;
         // Download with retry logic using backon
         let data = (|| async { client.get_range(chunk.start, chunk.end).await })
             .retry(
@@ -42,15 +64,17 @@ async fn download_worker(
         progress.increment(data_len);
 
         output_tx
-            .send_async(DownloadedChunk {
-                index: chunk.index,
-                data,
+            .send_async(BufferedChunk {
+                chunk: DownloadedChunk {
+                    index: chunk.index,
+                    data,
+                },
+                _permit: scheduled.permit,
             })
             .await
             .map_err(|e| {
                 crate::error::S3FcpError::DownloadFailed(format!(
-                    "Failed to send downloaded chunk: {}",
-                    e
+                    "Failed to send downloaded chunk: {e}"
                 ))
             })?;
     }
@@ -61,23 +85,23 @@ async fn download_worker(
 /// Stage 3: Ordered output writer
 /// Receives chunks (potentially out of order) and writes them in correct order
 async fn ordered_output_writer<W>(
-    rx: flume::Receiver<DownloadedChunk>,
+    rx: flume::Receiver<BufferedChunk>,
     total_chunks: usize,
     mut writer: W,
 ) -> Result<W>
 where
     W: AsyncWriteExt + Unpin,
 {
-    let mut buffer: BTreeMap<usize, DownloadedChunk> = BTreeMap::new();
+    let mut buffer: BTreeMap<usize, BufferedChunk> = BTreeMap::new();
     let mut next_expected = 0;
 
     while let Ok(chunk) = rx.recv_async().await {
         // Insert the chunk into the buffer
-        buffer.insert(chunk.index, chunk);
+        buffer.insert(chunk.chunk.index, chunk);
 
         // Drain all sequential chunks starting from next_expected
         while let Some(chunk) = buffer.remove(&next_expected) {
-            writer.write_all(&chunk.data).await?;
+            writer.write_all(&chunk.chunk.data).await?;
             next_expected += 1;
 
             // If we've written all chunks, we're done
@@ -93,7 +117,10 @@ where
     Ok(writer)
 }
 
-/// Download using chunked parallel requests
+/// Download using chunked parallel requests.
+///
+/// # Errors
+/// Returns an error if chunk scheduling, downloading, ordered writing, or task joining fails.
 pub async fn download_chunked<W>(
     client: Arc<dyn DownloadClient>,
     args: DownloadArgs,
@@ -115,36 +142,48 @@ where
     // Setup progress tracker
     let progress = ProgressTracker::new(content_length, args.quiet);
 
+    let concurrency = args.concurrency.max(1);
+    let max_buffered_chunks = args.max_buffered_chunks.max(1);
+
     // Setup channels for the 3 stages
-    let (chunk_tx, chunk_rx) = flume::bounded(args.concurrency);
-    let (output_tx, output_rx) = flume::bounded(args.concurrency * 2);
+    let (chunk_tx, chunk_rx) = flume::bounded(concurrency);
+    let (output_tx, output_rx) = flume::bounded(concurrency);
+    let window = Arc::new(Semaphore::new(max_buffered_chunks));
+
+    let mut tasks = JoinSet::new();
 
     // Spawn Stage 1: Queue
-    let queue_handle = tokio::spawn(queue_chunks(chunks, chunk_tx));
+    tasks.spawn(queue_chunks(chunks, chunk_tx, window));
 
     // Spawn Stage 2: Download workers (worker pool)
-    let mut download_handles = vec![];
-    for _ in 0..args.concurrency {
-        let worker_handle = tokio::spawn(download_worker(
+    for _ in 0..concurrency {
+        tasks.spawn(download_worker(
             client.clone(),
             chunk_rx.clone(),
             output_tx.clone(),
             progress.clone(),
         ));
-        download_handles.push(worker_handle);
     }
 
     // Spawn Stage 3: Ordered output
     let output_handle = tokio::spawn(ordered_output_writer(output_rx, total_chunks, writer));
 
-    // Await Stage 1 completion and drop sender
-    queue_handle.await??;
-    // Sender is dropped here, so workers will receive Err and exit
-
-    // Await all workers
-    for handle in download_handles {
-        handle.await??;
+    while let Some(result) = tasks.join_next().await {
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => {
+                tasks.abort_all();
+                output_handle.abort();
+                return Err(e);
+            }
+            Err(e) => {
+                tasks.abort_all();
+                output_handle.abort();
+                return Err(e.into());
+            }
+        }
     }
+
     // Drop output sender so output writer knows when to stop
     drop(output_tx);
 
@@ -157,7 +196,10 @@ where
     Ok(writer)
 }
 
-/// Download using a single stream (for servers without Range support)
+/// Download using a single stream (for servers without Range support).
+///
+/// # Errors
+/// Returns an error if the full download or output write fails.
 pub async fn download_single_stream<W>(
     client: Arc<dyn DownloadClient>,
     content_length: u64,
@@ -185,7 +227,10 @@ where
     Ok(writer)
 }
 
-/// Main download function - chooses strategy based on server capabilities
+/// Main download function - chooses strategy based on server capabilities.
+///
+/// # Errors
+/// Returns an error if metadata lookup or the selected download strategy fails.
 pub async fn download<W>(
     client: Arc<dyn DownloadClient>,
     args: DownloadArgs,
@@ -204,6 +249,10 @@ where
     }
 }
 
+/// Download to stdout.
+///
+/// # Errors
+/// Returns an error if the download or stdout write fails.
 pub async fn download_to_stdout(client: Arc<dyn DownloadClient>, args: DownloadArgs) -> Result<()> {
     download(client, args, io::stdout()).await?;
     Ok(())

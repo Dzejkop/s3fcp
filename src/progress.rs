@@ -6,17 +6,17 @@ pub struct ProgressTracker {
 }
 
 impl ProgressTracker {
+    #[must_use]
     pub fn new(total_bytes: u64, quiet: bool) -> Arc<Self> {
         let bar = if quiet {
             None
         } else {
             let pb = ProgressBar::new(total_bytes);
-            pb.set_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
-                    .expect("Invalid progress bar template")
-                    .progress_chars("#>-"),
-            );
+            if let Ok(style) = ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+            {
+                pb.set_style(style.progress_chars("#>-"));
+            }
             Some(pb)
         };
 
