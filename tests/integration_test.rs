@@ -64,7 +64,7 @@ async fn create_s3fcp_client(endpoint: &str, bucket: String, key: String) -> Arc
         aws_sdk_s3::Client::new(&config),
         bucket,
         key,
-        None,
+        None::<&str>,
     ))
 }
 

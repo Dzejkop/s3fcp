@@ -54,7 +54,7 @@ async fn download_worker(
         let data = (|| async { client.get_range(chunk.start, chunk.end).await })
             .retry(
                 ExponentialBuilder::default()
-                    .with_max_times(3)
+                    .with_max_times(10)
                     .with_min_delay(std::time::Duration::from_millis(100))
                     .with_max_delay(std::time::Duration::from_secs(5)),
             )

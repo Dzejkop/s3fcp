@@ -25,17 +25,17 @@ pub struct S3Client {
 
 impl S3Client {
     #[must_use]
-    pub const fn new(
+    pub fn new(
         client: Client,
-        bucket: String,
-        key: String,
-        version_id: Option<String>,
+        bucket: impl ToString,
+        key: impl ToString,
+        version_id: Option<impl ToString>,
     ) -> Self {
         Self {
             client,
-            bucket,
-            key,
-            version_id,
+            bucket: bucket.to_string(),
+            key: key.to_string(),
+            version_id: version_id.map(|vi| vi.to_string()),
         }
     }
 }

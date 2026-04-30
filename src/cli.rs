@@ -1,51 +1,15 @@
-use clap::{Args, Parser, Subcommand};
+use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(name = "s3fcp")]
 #[command(about = "Fast file downloader with multi-part support", long_about = None)]
 pub struct Cli {
-    #[command(subcommand)]
-    pub command: Command,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum Command {
-    /// Download from S3
-    S3(S3Args),
-    /// Download from HTTP/HTTPS URL
-    Http(HttpArgs),
-}
-
-#[derive(Args, Debug, Clone)]
-pub struct S3Args {
-    /// S3 URI in the format <s3://bucket/key>
+    /// URI to download (s3://, http://, or https://)
     pub uri: String,
 
     /// S3 object version ID for versioned objects
     #[arg(long)]
     pub version_id: Option<String>,
-
-    /// Number of concurrent download workers
-    #[arg(short = 'c', long, default_value = "10")]
-    pub concurrency: usize,
-
-    /// Chunk size (supports human-readable sizes: 8MB, 16MiB, 1GB, etc.)
-    #[arg(long, default_value = "8MB", value_parser = parse_chunk_size)]
-    pub chunk_size: usize,
-
-    /// Maximum chunks that may be downloaded ahead of ordered writes
-    #[arg(long, default_value_t = 512)]
-    pub max_buffered_chunks: usize,
-
-    /// Quiet mode - suppress progress output
-    #[arg(short = 'q', long)]
-    pub quiet: bool,
-}
-
-#[derive(Args, Debug, Clone)]
-pub struct HttpArgs {
-    /// HTTP/HTTPS URL to download
-    pub url: String,
 
     /// Number of concurrent download workers
     #[arg(short = 'c', long, default_value = "10")]
@@ -77,19 +41,8 @@ pub struct DownloadArgs {
     pub max_buffered_chunks: usize,
 }
 
-impl From<&S3Args> for DownloadArgs {
-    fn from(args: &S3Args) -> Self {
-        Self {
-            concurrency: args.concurrency,
-            chunk_size: args.chunk_size,
-            quiet: args.quiet,
-            max_buffered_chunks: args.max_buffered_chunks,
-        }
-    }
-}
-
-impl From<&HttpArgs> for DownloadArgs {
-    fn from(args: &HttpArgs) -> Self {
+impl From<&Cli> for DownloadArgs {
+    fn from(args: &Cli) -> Self {
         Self {
             concurrency: args.concurrency,
             chunk_size: args.chunk_size,
