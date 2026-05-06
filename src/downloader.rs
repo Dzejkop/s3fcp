@@ -4,6 +4,7 @@ use crate::error::Result;
 use crate::progress::ProgressTracker;
 use crate::s3_client::DownloadClient;
 use backon::{ExponentialBuilder, Retryable};
+use human_bytes::human_bytes;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{self, AsyncWriteExt};
@@ -18,6 +19,11 @@ struct ScheduledChunk {
 struct BufferedChunk {
     chunk: DownloadedChunk,
     _permit: OwnedSemaphorePermit,
+}
+
+#[allow(clippy::cast_precision_loss)]
+const fn bytes_to_f64(bytes: u64) -> f64 {
+    bytes as f64
 }
 
 /// Stage 1: Queue up download jobs
@@ -47,11 +53,15 @@ async fn download_worker(
     progress: Arc<dyn ProgressTracker>,
     rx: flume::Receiver<ScheduledChunk>,
     output_tx: flume::Sender<BufferedChunk>,
+    verbose: bool,
 ) -> Result<()> {
     while let Ok(scheduled) = rx.recv_async().await {
         let chunk = scheduled.chunk;
         // Download with retry logic using backon
         let chunk_index = chunk.index;
+        let chunk_start = chunk.start;
+        let chunk_end = chunk.end;
+        let download_started_at = verbose.then(std::time::Instant::now);
         let data = (|| async { client.get_range(chunk.start, chunk.end).await })
             .retry(
                 ExponentialBuilder::default()
@@ -65,6 +75,15 @@ async fn download_worker(
                 );
             })
             .await?;
+
+        if let Some(download_started_at) = download_started_at {
+            eprintln!(
+                "Downloaded chunk {chunk_index} ({}-{}) in {:?}",
+                human_bytes(bytes_to_f64(chunk_start)),
+                human_bytes(bytes_to_f64(chunk_end)),
+                download_started_at.elapsed()
+            );
+        }
 
         let data_len = data.len() as u64;
         progress.increment(data_len);
@@ -169,6 +188,7 @@ where
             progress.clone(),
             chunk_rx.clone(),
             output_tx.clone(),
+            args.verbose,
         ));
     }
 

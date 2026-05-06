@@ -27,6 +27,10 @@ pub struct Cli {
     #[arg(short = 'q', long)]
     pub quiet: bool,
 
+    /// Verbose mode - log per-chunk download timings
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
+
     /// Logs progress instead of a progress bar
     #[arg(short = 'l', long)]
     pub log_progress: bool,
@@ -41,6 +45,8 @@ pub struct DownloadArgs {
     pub chunk_size: usize,
     #[builder(default)]
     pub quiet: bool,
+    #[builder(default)]
+    pub verbose: bool,
     #[builder(default = 512)]
     pub max_buffered_chunks: usize,
 }
@@ -51,6 +57,7 @@ impl From<&Cli> for DownloadArgs {
             concurrency: args.concurrency,
             chunk_size: args.chunk_size,
             quiet: args.quiet,
+            verbose: args.verbose,
             max_buffered_chunks: args.max_buffered_chunks,
         }
     }
