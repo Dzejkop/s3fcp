@@ -4,6 +4,7 @@ use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client;
 use s3fcp::cli::DownloadArgs;
 use s3fcp::downloader::download;
+use s3fcp::progress::quiet::QuietProgressTracker;
 use s3fcp::s3_client::S3Client;
 use std::sync::Arc;
 use testcontainers::{runners::AsyncRunner, ContainerAsync, ImageExt};
@@ -112,7 +113,13 @@ async fn test_download_small_file() -> anyhow::Result<()> {
     let args = DownloadArgs::builder().concurrency(2).quiet(true).build();
 
     // Download to a buffer
-    let output = download(s3fcp_client, args, Vec::new()).await?;
+    let output = download(
+        s3fcp_client,
+        QuietProgressTracker::dyn_new(),
+        args,
+        Vec::new(),
+    )
+    .await?;
 
     // Verify downloaded content matches
     assert_eq!(output, test_content);
@@ -146,7 +153,13 @@ async fn test_download_large_file_with_chunks() -> anyhow::Result<()> {
         .quiet(true)
         .build();
 
-    let output = download(s3fcp_client, args, Vec::new()).await?;
+    let output = download(
+        s3fcp_client,
+        QuietProgressTracker::dyn_new(),
+        args,
+        Vec::new(),
+    )
+    .await?;
 
     // Verify downloaded content matches exactly
     assert_eq!(output.len(), test_content.len());
@@ -170,7 +183,13 @@ async fn test_download_empty_file() -> anyhow::Result<()> {
 
     let args = DownloadArgs::builder().quiet(true).build();
 
-    let output = download(s3fcp_client, args, Vec::new()).await?;
+    let output = download(
+        s3fcp_client,
+        QuietProgressTracker::dyn_new(),
+        args,
+        Vec::new(),
+    )
+    .await?;
 
     // Verify empty output
     assert_eq!(output, test_content);
@@ -192,7 +211,13 @@ async fn test_download_single_byte() -> anyhow::Result<()> {
 
     let args = DownloadArgs::builder().concurrency(1).quiet(true).build();
 
-    let output = download(s3fcp_client, args, Vec::new()).await?;
+    let output = download(
+        s3fcp_client,
+        QuietProgressTracker::dyn_new(),
+        args,
+        Vec::new(),
+    )
+    .await?;
 
     assert_eq!(output, test_content);
 

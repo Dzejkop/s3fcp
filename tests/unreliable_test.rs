@@ -12,6 +12,7 @@ use rand::{random_bool, random_range};
 use s3fcp::cli::DownloadArgs;
 use s3fcp::downloader::download;
 use s3fcp::http_client::HttpClient;
+use s3fcp::progress::quiet::QuietProgressTracker;
 use std::sync::{atomic::Ordering, Arc};
 use std::{io, sync::atomic::AtomicUsize};
 use tokio::net::TcpListener;
@@ -124,7 +125,7 @@ async fn test_unreliable_download_test() -> anyhow::Result<()> {
         .concurrency(10)
         .chunk_size(1024) // 1 KiB
         .build();
-    let output = download(client, args, Vec::new()).await?;
+    let output = download(client, QuietProgressTracker::dyn_new(), args, Vec::new()).await?;
 
     println!("Fail count is {}", fail_count.load(Ordering::Relaxed));
     assert!(fail_count.load(Ordering::Relaxed) > 0);
