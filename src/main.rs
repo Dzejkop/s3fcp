@@ -33,6 +33,7 @@ async fn main() {
         "s3" => {
             let bucket = url.host_str().expect("Missing bucket");
             let key = url.path();
+            let key = key.trim_start_matches('/'); // trim the leading backslash
 
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
             let download_args = DownloadArgs::from(&cli);
