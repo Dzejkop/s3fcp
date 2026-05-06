@@ -5,8 +5,9 @@ use crate::progress::ProgressTracker;
 pub struct QuietProgressTracker;
 
 impl QuietProgressTracker {
+    #[must_use]
     pub fn dyn_new() -> Arc<dyn ProgressTracker> {
-        Arc::new(QuietProgressTracker)
+        Arc::new(Self)
     }
 }
 

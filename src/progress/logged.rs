@@ -35,10 +35,15 @@ impl LoggedProgressTracker {
     }
 }
 
+#[allow(clippy::cast_precision_loss)]
+const fn bytes_to_f64(bytes: u64) -> f64 {
+    bytes as f64
+}
+
 fn average_speed(bytes: u64, elapsed: Duration) -> f64 {
     let seconds = elapsed.as_secs_f64();
     if seconds > 0.0 {
-        bytes as f64 / seconds
+        bytes_to_f64(bytes) / seconds
     } else {
         0.0
     }
@@ -54,7 +59,7 @@ fn estimated_remaining(
     }
 
     Some(Duration::from_secs_f64(
-        (total_bytes - current_bytes) as f64 / bytes_per_second,
+        bytes_to_f64(total_bytes - current_bytes) / bytes_per_second,
     ))
 }
 
@@ -67,8 +72,12 @@ impl ProgressTracker for LoggedProgressTracker {
         inner.current_bytes_part = 0;
         inner.started_at = Some(now);
         inner.last_logged_at = Some(now);
+        drop(inner);
 
-        eprintln!("Starting download of {}", human_bytes(total_bytes as f64));
+        eprintln!(
+            "Starting download of {}",
+            human_bytes(bytes_to_f64(total_bytes))
+        );
     }
 
     fn increment(&self, bytes: u64) {
@@ -100,15 +109,15 @@ impl ProgressTracker for LoggedProgressTracker {
             );
 
             let percentage = if inner.total_bytes > 0 {
-                (inner.current_bytes as f64 / inner.total_bytes as f64) * 100.0
+                (bytes_to_f64(inner.current_bytes) / bytes_to_f64(inner.total_bytes)) * 100.0
             } else {
                 0.0
             };
 
             eprintln!(
                 "Downloaded {} / {} ({:.2}%); avg {}/s, recent {}/s; elapsed {}; ETA {}",
-                human_bytes(inner.current_bytes as f64),
-                human_bytes(inner.total_bytes as f64),
+                human_bytes(bytes_to_f64(inner.current_bytes)),
+                human_bytes(bytes_to_f64(inner.total_bytes)),
                 percentage,
                 human_bytes(average_bytes_per_second),
                 human_bytes(part_bytes_per_second),
@@ -122,14 +131,17 @@ impl ProgressTracker for LoggedProgressTracker {
 
     fn finish(&self) {
         let inner = self.inner.lock().expect("poisoned tracker lock");
+        let current_bytes = inner.current_bytes;
         let elapsed = inner
             .started_at
             .map_or(Duration::ZERO, |start| start.elapsed());
-        let bytes_per_second = average_speed(inner.current_bytes, elapsed);
+        drop(inner);
+
+        let bytes_per_second = average_speed(current_bytes, elapsed);
 
         eprintln!(
             "Download complete: {} in {} (avg {}/s)",
-            human_bytes(inner.current_bytes as f64),
+            human_bytes(bytes_to_f64(current_bytes)),
             humantime::format_duration(elapsed),
             human_bytes(bytes_per_second)
         );

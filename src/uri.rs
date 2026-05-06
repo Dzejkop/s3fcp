@@ -19,6 +19,9 @@ pub enum DownloadUri {
 
 impl DownloadUri {
     /// Parse a URI and select the downloader from its scheme.
+    ///
+    /// # Errors
+    /// Returns an error if the URI scheme is unsupported or the URI is invalid.
     pub fn parse(uri: &str) -> Result<Self> {
         if uri.starts_with("s3://") {
             return Ok(Self::S3(S3Uri::parse(uri)?));

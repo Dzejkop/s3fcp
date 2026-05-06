@@ -27,15 +27,15 @@ impl S3Client {
     #[must_use]
     pub fn new(
         client: Client,
-        bucket: impl ToString,
-        key: impl ToString,
-        version_id: Option<impl ToString>,
+        bucket: impl Into<String>,
+        key: impl Into<String>,
+        version_id: Option<impl Into<String>>,
     ) -> Self {
         Self {
             client,
-            bucket: bucket.to_string(),
-            key: key.to_string(),
-            version_id: version_id.map(|vi| vi.to_string()),
+            bucket: bucket.into(),
+            key: key.into(),
+            version_id: version_id.map(Into::into),
         }
     }
 }
