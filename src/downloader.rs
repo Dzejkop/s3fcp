@@ -51,6 +51,7 @@ async fn download_worker(
     while let Ok(scheduled) = rx.recv_async().await {
         let chunk = scheduled.chunk;
         // Download with retry logic using backon
+        let chunk_index = chunk.index;
         let data = (|| async { client.get_range(chunk.start, chunk.end).await })
             .retry(
                 ExponentialBuilder::default()
@@ -58,6 +59,11 @@ async fn download_worker(
                     .with_min_delay(std::time::Duration::from_millis(100))
                     .with_max_delay(std::time::Duration::from_secs(5)),
             )
+            .notify(move |err, duration| {
+                eprintln!(
+                    "Failed to download chunk {chunk_index}: {err}; retrying in {duration:?}"
+                );
+            })
             .await?;
 
         let data_len = data.len() as u64;
