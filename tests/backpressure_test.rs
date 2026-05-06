@@ -3,6 +3,7 @@ use bytes::Bytes;
 use s3fcp::cli::DownloadArgs;
 use s3fcp::downloader::download;
 use s3fcp::error::Result;
+use s3fcp::progress::quiet::QuietProgressTracker;
 use s3fcp::s3_client::{DownloadClient, ObjectMetadata};
 use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
@@ -54,7 +55,12 @@ async fn chunk_downloads_are_backpressured_by_ordered_writer() -> anyhow::Result
         .quiet(true)
         .build();
 
-    let download_task = tokio::spawn(download(client, args, Vec::new()));
+    let download_task = tokio::spawn(download(
+        client,
+        QuietProgressTracker::dyn_new(),
+        args,
+        Vec::new(),
+    ));
 
     timeout(Duration::from_secs(1), async {
         loop {

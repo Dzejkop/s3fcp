@@ -12,8 +12,8 @@ categories = ["command-line-utilities", "network-programming"]
 
 [dependencies]
 # AWS SDK
-aws-config = "1.5"
-aws-sdk-s3 = "1.55"
+aws-config = "1.8"
+aws-sdk-s3 = "1.131"
 
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
@@ -39,6 +39,8 @@ indicatif = "0.17"
 bytes = "1.7"
 futures = "0.3"
 bon = "3"
+human_bytes = "0.4"
+humantime = "2.1"
 
 # HTTP client
 reqwest = { version = "0.12", default-features = false, features = [
@@ -46,6 +48,7 @@ reqwest = { version = "0.12", default-features = false, features = [
   "rustls-tls",
 ] }
 async-trait = "0.1"
+url = "2.5.8"
 
 [lints.rust]
 warnings = "deny"
@@ -63,3 +66,4 @@ testcontainers-modules = { version = "0.14", features = ["localstack"] }
 axum = "0.8"
 tower-http = { version = "0.6", features = ["fs"] }
 tempfile = "3"
+rand = "0.10.1"

@@ -2,6 +2,7 @@ use axum::Router;
 use s3fcp::cli::DownloadArgs;
 use s3fcp::downloader::download;
 use s3fcp::http_client::HttpClient;
+use s3fcp::progress::quiet::QuietProgressTracker;
 use std::io::Write;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -38,7 +39,7 @@ async fn test_http_download_small_file() -> anyhow::Result<()> {
 
     let client = Arc::new(HttpClient::new(format!("{base_url}/test.txt")));
     let args = DownloadArgs::builder().concurrency(2).quiet(true).build();
-    let output = download(client, args, Vec::new()).await?;
+    let output = download(client, QuietProgressTracker::dyn_new(), args, Vec::new()).await?;
 
     assert_eq!(output, content);
     Ok(())
@@ -61,7 +62,7 @@ async fn test_http_download_chunked_with_range() -> anyhow::Result<()> {
         .chunk_size(256 * 1024)
         .quiet(true)
         .build();
-    let output = download(client, args, Vec::new()).await?;
+    let output = download(client, QuietProgressTracker::dyn_new(), args, Vec::new()).await?;
 
     assert_eq!(output.len(), content.len());
     assert_eq!(output, content);
@@ -75,7 +76,7 @@ async fn test_http_download_empty_file() -> anyhow::Result<()> {
 
     let client = Arc::new(HttpClient::new(format!("{base_url}/empty.txt")));
     let args = DownloadArgs::builder().quiet(true).build();
-    let output = download(client, args, Vec::new()).await?;
+    let output = download(client, QuietProgressTracker::dyn_new(), args, Vec::new()).await?;
 
     assert!(output.is_empty());
     Ok(())
@@ -88,7 +89,7 @@ async fn test_http_download_single_byte() -> anyhow::Result<()> {
 
     let client = Arc::new(HttpClient::new(format!("{base_url}/single.bin")));
     let args = DownloadArgs::builder().concurrency(1).quiet(true).build();
-    let output = download(client, args, Vec::new()).await?;
+    let output = download(client, QuietProgressTracker::dyn_new(), args, Vec::new()).await?;
 
     assert_eq!(output, vec![42u8]);
     Ok(())
@@ -100,7 +101,7 @@ async fn test_http_download_404() -> anyhow::Result<()> {
 
     let client = Arc::new(HttpClient::new(format!("{base_url}/not-found.txt")));
     let args = DownloadArgs::builder().quiet(true).build();
-    let result = download(client, args, Vec::new()).await;
+    let result = download(client, QuietProgressTracker::dyn_new(), args, Vec::new()).await;
 
     assert!(result.is_err());
     Ok(())

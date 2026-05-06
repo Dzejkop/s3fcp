@@ -34,68 +34,41 @@ cargo build --release
 
 ```bash
 # Download and stream to stdout
-s3fcp s3 s3://bucket/key
+s3fcp s3://bucket/key
 
 # Redirect to file
-s3fcp s3 s3://bucket/key > output.bin
+s3fcp s3://bucket/key > output.bin
 
 # Download specific version
-s3fcp s3 s3://bucket/key --version-id v123
+s3fcp s3://bucket/key --version-id v123
 
 # Increase concurrency
-s3fcp s3 s3://bucket/key -c 16
+s3fcp s3://bucket/key -c 16
 
 # Use larger chunks (human-readable sizes)
-s3fcp s3 s3://bucket/key --chunk-size 16MB
+s3fcp s3://bucket/key --chunk-size 16MB
 ```
 
 ### HTTP/HTTPS Downloads
 
 ```bash
 # Download from HTTP URL
-s3fcp http https://example.com/file.bin > file.bin
+s3fcp https://example.com/file.bin > file.bin
 
 # With custom concurrency and chunk size
-s3fcp http https://example.com/large.iso -c 16 --chunk-size 16MB
+s3fcp https://example.com/large.iso -c 16 --chunk-size 16MB
 
 # Quiet mode
-s3fcp http https://example.com/data.json -q | jq '.field'
+s3fcp https://example.com/data.json -q | jq '.field'
 ```
 
 ## CLI Options
 
 ```
-Usage: s3fcp <COMMAND>
-
-Commands:
-  s3    Download from S3
-  http  Download from HTTP/HTTPS URL
-  help  Print this message or the help of the given subcommand(s)
-```
-
-### S3 Subcommand
-
-```
-Usage: s3fcp s3 [OPTIONS] <URI>
+Usage: s3fcp [OPTIONS] <URI>
 
 Arguments:
-  <URI>  S3 URI in the format s3://bucket/key
-
-Options:
-      --version-id <VERSION_ID>    S3 object version ID for versioned objects
-  -c, --concurrency <CONCURRENCY>  Number of concurrent download workers [default: 10]
-      --chunk-size <CHUNK_SIZE>    Chunk size [default: 8MB]
-  -q, --quiet                      Quiet mode - suppress progress output
-  -h, --help                       Print help
-```
-
-### HTTP Subcommand
-
-```
-Usage: s3fcp http [OPTIONS] <URL>
-
-Arguments:
-  <URL>  HTTP/HTTPS URL to download
+  <URI>  URI to download (s3://, http://, or https://)
 
 Options:
   -c, --concurrency <CONCURRENCY>  Number of concurrent download workers [default: 10]
@@ -159,17 +132,17 @@ For S3 downloads, s3fcp uses the standard AWS credential chain:
 
 Download a 1GB file from S3 with 16 concurrent workers:
 ```bash
-s3fcp s3 s3://my-bucket/large-file.bin -c 16 > large-file.bin
+s3fcp s3://my-bucket/large-file.bin -c 16 > large-file.bin
 ```
 
 Download from HTTP and pipe to another command:
 ```bash
-s3fcp http https://example.com/data.gz -q | gunzip | grep "pattern"
+s3fcp https://example.com/data.gz -q | gunzip | grep "pattern"
 ```
 
 Quiet download for scripts:
 ```bash
-s3fcp s3 s3://my-bucket/data.json -q | jq '.field'
+s3fcp s3://my-bucket/data.json -q | jq '.field'
 ```
 
 ## Development

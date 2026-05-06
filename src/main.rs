@@ -1,50 +1,57 @@
 use clap::Parser;
 use s3fcp::{
-    cli::{Cli, Command, DownloadArgs},
+    cli::{Cli, DownloadArgs},
     downloader::download_to_stdout,
     http_client::HttpClient,
+    progress::{
+        bar::ProgressBarTracker, logged::LoggedProgressTracker, quiet::QuietProgressTracker,
+    },
     s3_client::S3Client,
-    uri::{HttpUri, S3Uri},
 };
 use std::sync::Arc;
+use url::Url;
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
 
-    let result = match cli.command {
-        Command::S3(args) => {
-            let uri = match S3Uri::parse(&args.uri) {
-                Ok(uri) => uri,
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    std::process::exit(1);
-                }
-            };
+    let url: Url = match Url::parse(&cli.uri) {
+        Ok(url) => url,
+        Err(err) => {
+            eprintln!("Invalid URL: {err}");
+            std::process::exit(1);
+        }
+    };
+
+    let progress = match (cli.quiet, cli.log_progress) {
+        (true, _) => QuietProgressTracker::dyn_new(),
+        (false, true) => LoggedProgressTracker::dyn_new(),
+        (false, false) => ProgressBarTracker::dyn_new(),
+    };
+
+    let result = match url.scheme() {
+        "s3" => {
+            let bucket = url.host_str().expect("Missing bucket");
+            let key = url.path();
 
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-            let download_args = DownloadArgs::from(&args);
+            let download_args = DownloadArgs::from(&cli);
             let client = Arc::new(S3Client::new(
                 aws_sdk_s3::Client::new(&config),
-                uri.bucket,
-                uri.key,
-                args.version_id,
+                bucket,
+                key,
+                cli.version_id,
             ));
 
-            download_to_stdout(client, download_args).await
+            download_to_stdout(client, progress, download_args).await
         }
-        Command::Http(args) => {
-            let uri = match HttpUri::parse(&args.url) {
-                Ok(uri) => uri,
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    std::process::exit(1);
-                }
-            };
-
-            let client = Arc::new(HttpClient::new(uri.url));
-
-            download_to_stdout(client, DownloadArgs::from(&args)).await
+        "http" | "https" => {
+            let client = Arc::new(HttpClient::new(url.to_string()));
+            download_to_stdout(client, progress, DownloadArgs::from(&cli)).await
+        }
+        scheme => {
+            eprintln!("Unsupported URL scheme: {scheme}");
+            std::process::exit(1)
         }
     };
 

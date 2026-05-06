@@ -11,6 +11,32 @@ pub struct HttpUri {
     pub url: String,
 }
 
+#[derive(Debug, Clone)]
+pub enum DownloadUri {
+    S3(S3Uri),
+    Http(HttpUri),
+}
+
+impl DownloadUri {
+    /// Parse a URI and select the downloader from its scheme.
+    ///
+    /// # Errors
+    /// Returns an error if the URI scheme is unsupported or the URI is invalid.
+    pub fn parse(uri: &str) -> Result<Self> {
+        if uri.starts_with("s3://") {
+            return Ok(Self::S3(S3Uri::parse(uri)?));
+        }
+
+        if uri.starts_with("http://") || uri.starts_with("https://") {
+            return Ok(Self::Http(HttpUri::parse(uri)?));
+        }
+
+        Err(S3FcpError::InvalidUri(
+            "URI must start with s3://, http://, or https://".to_string(),
+        ))
+    }
+}
+
 impl HttpUri {
     /// Parse and validate an HTTP/HTTPS URL.
     ///
@@ -103,6 +129,33 @@ mod tests {
     #[test]
     fn test_invalid_uri_empty_key() {
         let result = S3Uri::parse("s3://my-bucket/");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_download_uri_s3() {
+        let uri = DownloadUri::parse("s3://my-bucket/path/to/object.txt").unwrap();
+        match uri {
+            DownloadUri::S3(uri) => {
+                assert_eq!(uri.bucket, "my-bucket");
+                assert_eq!(uri.key, "path/to/object.txt");
+            }
+            DownloadUri::Http(_) => panic!("expected S3 URI"),
+        }
+    }
+
+    #[test]
+    fn test_download_uri_http() {
+        let uri = DownloadUri::parse("https://example.com/file.txt").unwrap();
+        match uri {
+            DownloadUri::Http(uri) => assert_eq!(uri.url, "https://example.com/file.txt"),
+            DownloadUri::S3(_) => panic!("expected HTTP URI"),
+        }
+    }
+
+    #[test]
+    fn test_download_uri_invalid_scheme() {
+        let result = DownloadUri::parse("ftp://example.com/file.txt");
         assert!(result.is_err());
     }
 
