@@ -12,8 +12,8 @@ categories = ["command-line-utilities", "network-programming"]
 
 [dependencies]
 # AWS SDK
-aws-config = "1.5"
-aws-sdk-s3 = "1.55"
+aws-config = "1.8"
+aws-sdk-s3 = "1.131"
 
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
