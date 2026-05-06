@@ -44,9 +44,9 @@ async fn queue_chunks(
 /// Pulls chunks from the queue and downloads them with retry logic
 async fn download_worker(
     client: Arc<dyn DownloadClient>,
+    progress: Arc<dyn ProgressTracker>,
     rx: flume::Receiver<ScheduledChunk>,
     output_tx: flume::Sender<BufferedChunk>,
-    progress: Arc<ProgressTracker>,
 ) -> Result<()> {
     while let Ok(scheduled) = rx.recv_async().await {
         let chunk = scheduled.chunk;
@@ -123,6 +123,7 @@ where
 /// Returns an error if chunk scheduling, downloading, ordered writing, or task joining fails.
 pub async fn download_chunked<W>(
     client: Arc<dyn DownloadClient>,
+    progress: Arc<dyn ProgressTracker>,
     args: DownloadArgs,
     content_length: u64,
     writer: W,
@@ -140,7 +141,7 @@ where
     let total_chunks = chunks.len();
 
     // Setup progress tracker
-    let progress = ProgressTracker::new(content_length, args.quiet);
+    progress.reset(content_length);
 
     let concurrency = args.concurrency.max(1);
     let max_buffered_chunks = args.max_buffered_chunks.max(1);
@@ -159,9 +160,9 @@ where
     for _ in 0..concurrency {
         tasks.spawn(download_worker(
             client.clone(),
+            progress.clone(),
             chunk_rx.clone(),
             output_tx.clone(),
-            progress.clone(),
         ));
     }
 
@@ -202,8 +203,8 @@ where
 /// Returns an error if the full download or output write fails.
 pub async fn download_single_stream<W>(
     client: Arc<dyn DownloadClient>,
+    progress: Arc<dyn ProgressTracker>,
     content_length: u64,
-    quiet: bool,
     mut writer: W,
 ) -> Result<W>
 where
@@ -214,7 +215,7 @@ where
         return Ok(writer);
     }
 
-    let progress = ProgressTracker::new(content_length, quiet);
+    progress.reset(content_length);
 
     // Download entire file in a single request
     let data = client.get_full().await?;
@@ -233,6 +234,7 @@ where
 /// Returns an error if metadata lookup or the selected download strategy fails.
 pub async fn download<W>(
     client: Arc<dyn DownloadClient>,
+    progress: Arc<dyn ProgressTracker>,
     args: DownloadArgs,
     writer: W,
 ) -> Result<W>
@@ -243,9 +245,9 @@ where
     let metadata = client.head().await?;
 
     if metadata.supports_range {
-        download_chunked(client, args, metadata.content_length, writer).await
+        download_chunked(client, progress, args, metadata.content_length, writer).await
     } else {
-        download_single_stream(client, metadata.content_length, args.quiet, writer).await
+        download_single_stream(client, progress, metadata.content_length, writer).await
     }
 }
 
@@ -253,7 +255,11 @@ where
 ///
 /// # Errors
 /// Returns an error if the download or stdout write fails.
-pub async fn download_to_stdout(client: Arc<dyn DownloadClient>, args: DownloadArgs) -> Result<()> {
-    download(client, args, io::stdout()).await?;
+pub async fn download_to_stdout(
+    client: Arc<dyn DownloadClient>,
+    progress: Arc<dyn ProgressTracker>,
+    args: DownloadArgs,
+) -> Result<()> {
+    download(client, progress, args, io::stdout()).await?;
     Ok(())
 }

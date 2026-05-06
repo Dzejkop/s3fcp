@@ -26,6 +26,10 @@ pub struct Cli {
     /// Quiet mode - suppress progress output
     #[arg(short = 'q', long)]
     pub quiet: bool,
+
+    /// Logs progress instead of a progress bar
+    #[arg(short = 'l', long)]
+    pub log_progress: bool,
 }
 
 /// Common download arguments shared between S3 and HTTP

@@ -3,6 +3,9 @@ use s3fcp::{
     cli::{Cli, DownloadArgs},
     downloader::download_to_stdout,
     http_client::HttpClient,
+    progress::{
+        bar::ProgressBarTracker, logged::LoggedProgressTracker, quiet::QuietProgressTracker,
+    },
     s3_client::S3Client,
 };
 use std::sync::Arc;
@@ -20,6 +23,12 @@ async fn main() {
         }
     };
 
+    let progress = match (cli.quiet, cli.log_progress) {
+        (true, _) => QuietProgressTracker::dyn_new(),
+        (false, true) => LoggedProgressTracker::dyn_new(),
+        (false, false) => ProgressBarTracker::dyn_new(),
+    };
+
     let result = match url.scheme() {
         "s3" => {
             let bucket = url.host_str().expect("Missing bucket");
@@ -34,11 +43,11 @@ async fn main() {
                 cli.version_id,
             ));
 
-            download_to_stdout(client, download_args).await
+            download_to_stdout(client, progress, download_args).await
         }
         "http" | "https" => {
             let client = Arc::new(HttpClient::new(url.to_string()));
-            download_to_stdout(client, DownloadArgs::from(&cli)).await
+            download_to_stdout(client, progress, DownloadArgs::from(&cli)).await
         }
         scheme => {
             eprintln!("Unsupported URL scheme: {scheme}");
