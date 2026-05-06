@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use s3fcp::cli::DownloadArgs;
+use s3fcp::client::{DownloadClient, ObjectMetadata};
 use s3fcp::downloader::download;
 use s3fcp::error::Result;
 use s3fcp::progress::quiet::QuietProgressTracker;
-use s3fcp::s3_client::{DownloadClient, ObjectMetadata};
 use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, timeout, Duration};

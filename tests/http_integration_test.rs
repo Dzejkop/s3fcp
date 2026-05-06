@@ -1,7 +1,7 @@
 use axum::Router;
 use s3fcp::cli::DownloadArgs;
+use s3fcp::client::HttpClient;
 use s3fcp::downloader::download;
-use s3fcp::http_client::HttpClient;
 use s3fcp::progress::quiet::QuietProgressTracker;
 use std::io::Write;
 use std::sync::Arc;

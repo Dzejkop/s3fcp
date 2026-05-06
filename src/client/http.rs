@@ -3,8 +3,8 @@ use bytes::Bytes;
 use reqwest::header::{ACCEPT_RANGES, CONTENT_LENGTH, RANGE};
 use reqwest::Client;
 
+use crate::client::{DownloadClient, ObjectMetadata};
 use crate::error::{Result, S3FcpError};
-use crate::s3_client::{DownloadClient, ObjectMetadata};
 
 pub struct HttpClient {
     client: Client,

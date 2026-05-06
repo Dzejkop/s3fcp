@@ -1,8 +1,8 @@
 use crate::chunk::{create_chunks, Chunk, DownloadedChunk};
 use crate::cli::DownloadArgs;
+use crate::client::DownloadClient;
 use crate::error::Result;
 use crate::progress::ProgressTracker;
-use crate::s3_client::DownloadClient;
 use backon::{ExponentialBuilder, Retryable};
 use human_bytes::human_bytes;
 use std::collections::BTreeMap;
@@ -113,6 +113,7 @@ async fn ordered_output_writer<W>(
     rx: flume::Receiver<BufferedChunk>,
     total_chunks: usize,
     mut writer: W,
+    verbose: bool,
 ) -> Result<W>
 where
     W: AsyncWriteExt + Unpin,
@@ -126,7 +127,13 @@ where
 
         // Drain all sequential chunks starting from next_expected
         while let Some(chunk) = buffer.remove(&next_expected) {
+            if verbose {
+                eprintln!("Writing chunk {}", chunk.chunk.index);
+            }
             writer.write_all(&chunk.chunk.data).await?;
+            if verbose {
+                eprintln!("Wrote chunk {}", chunk.chunk.index);
+            }
             next_expected += 1;
 
             // If we've written all chunks, we're done
@@ -193,7 +200,12 @@ where
     }
 
     // Spawn Stage 3: Ordered output
-    let output_handle = tokio::spawn(ordered_output_writer(output_rx, total_chunks, writer));
+    let output_handle = tokio::spawn(ordered_output_writer(
+        output_rx,
+        total_chunks,
+        writer,
+        args.verbose,
+    ));
 
     while let Some(result) = tasks.join_next().await {
         match result {

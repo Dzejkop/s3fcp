@@ -13,6 +13,7 @@ A high-performance Rust CLI tool for downloading files from S3 and HTTP/HTTPS wi
 - **Range Request Support**: Uses HTTP Range requests when supported, falls back to single-stream otherwise
 - **Progress Tracking**: Real-time progress bar on stderr (can be silenced)
 - **Automatic Retries**: Exponential backoff retry logic for transient failures
+- **Configurable Timeouts**: Per-operation timeout for HEAD/GET requests
 - **Memory Efficient**: Bounded memory usage regardless of file size
 
 ## Installation
@@ -73,6 +74,7 @@ Arguments:
 Options:
   -c, --concurrency <CONCURRENCY>  Number of concurrent download workers [default: 10]
       --chunk-size <CHUNK_SIZE>    Chunk size [default: 8MB]
+      --timeout <TIMEOUT>          Per-operation timeout
   -q, --quiet                      Quiet mode - suppress progress output
   -h, --help                       Print help
 ```

@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::time::Duration;
 
 #[derive(Parser, Debug)]
 #[command(name = "s3fcp")]
@@ -22,6 +23,10 @@ pub struct Cli {
     /// Maximum chunks that may be downloaded ahead of ordered writes
     #[arg(long, default_value_t = 512)]
     pub max_buffered_chunks: usize,
+
+    /// Per-operation timeout (examples: 30s, 2m)
+    #[arg(long, value_parser = parse_duration)]
+    pub timeout: Option<Duration>,
 
     /// Quiet mode - suppress progress output
     #[arg(short = 'q', long)]
@@ -87,6 +92,10 @@ fn parse_decimal_size(num: &str, multiplier: u128) -> Option<u128> {
     whole.checked_add(fraction)
 }
 
+fn parse_duration(s: &str) -> Result<Duration, String> {
+    humantime::parse_duration(s).map_err(|e| format!("Invalid duration: {e}"))
+}
+
 fn parse_chunk_size(s: &str) -> Result<usize, String> {
     let s = s.trim().to_uppercase();
 
@@ -124,6 +133,12 @@ fn parse_chunk_size(s: &str) -> Result<usize, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_duration() {
+        assert_eq!(parse_duration("30s").unwrap(), Duration::from_secs(30));
+        assert_eq!(parse_duration("2m").unwrap().as_secs(), 120);
+    }
 
     #[test]
     fn test_parse_chunk_size() {

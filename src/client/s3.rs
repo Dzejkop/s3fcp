@@ -2,19 +2,8 @@ use async_trait::async_trait;
 use aws_sdk_s3::Client;
 use bytes::Bytes;
 
+use crate::client::{DownloadClient, ObjectMetadata};
 use crate::error::{Result, S3FcpError};
-
-pub struct ObjectMetadata {
-    pub content_length: u64,
-    pub supports_range: bool,
-}
-
-#[async_trait]
-pub trait DownloadClient: Send + Sync {
-    async fn head(&self) -> Result<ObjectMetadata>;
-    async fn get_range(&self, start: u64, end: u64) -> Result<Bytes>;
-    async fn get_full(&self) -> Result<Bytes>;
-}
 
 pub struct S3Client {
     client: Client,
