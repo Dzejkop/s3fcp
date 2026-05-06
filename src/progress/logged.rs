@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use crate::progress::ProgressTracker;
 use human_bytes::human_bytes;
@@ -18,6 +21,8 @@ struct Inner {
     current_bytes: u64,
     // How many bytes have been downloaded under threshold
     current_bytes_part: u64,
+    started_at: Option<Instant>,
+    last_logged_at: Option<Instant>,
 }
 
 impl LoggedProgressTracker {
@@ -30,12 +35,38 @@ impl LoggedProgressTracker {
     }
 }
 
+fn average_speed(bytes: u64, elapsed: Duration) -> f64 {
+    let seconds = elapsed.as_secs_f64();
+    if seconds > 0.0 {
+        bytes as f64 / seconds
+    } else {
+        0.0
+    }
+}
+
+fn estimated_remaining(
+    current_bytes: u64,
+    total_bytes: u64,
+    bytes_per_second: f64,
+) -> Option<Duration> {
+    if bytes_per_second <= 0.0 || current_bytes >= total_bytes {
+        return None;
+    }
+
+    Some(Duration::from_secs_f64(
+        (total_bytes - current_bytes) as f64 / bytes_per_second,
+    ))
+}
+
 impl ProgressTracker for LoggedProgressTracker {
     fn reset(&self, total_bytes: u64) {
-        self.inner
-            .lock()
-            .expect("poisoned tracker lock")
-            .total_bytes = total_bytes;
+        let mut inner = self.inner.lock().expect("poisoned tracker lock");
+        inner.total_bytes = total_bytes;
+        inner.current_bytes = 0;
+        let now = Instant::now();
+        inner.current_bytes_part = 0;
+        inner.started_at = Some(now);
+        inner.last_logged_at = Some(now);
 
         eprintln!("Starting download of {}", human_bytes(total_bytes as f64));
     }
@@ -47,18 +78,60 @@ impl ProgressTracker for LoggedProgressTracker {
         inner.current_bytes_part += bytes;
 
         if inner.current_bytes_part > self.threshold {
-            let percentage = (inner.current_bytes as f64 / inner.total_bytes as f64) * 100.0;
+            let now = Instant::now();
+            let elapsed = inner
+                .started_at
+                .map_or(Duration::ZERO, |start| now.duration_since(start));
+            let part_elapsed = inner
+                .last_logged_at
+                .map_or(elapsed, |last_log| now.duration_since(last_log));
+
+            let average_bytes_per_second = average_speed(inner.current_bytes, elapsed);
+            let part_bytes_per_second = average_speed(inner.current_bytes_part, part_elapsed);
+
+            let remaining = estimated_remaining(
+                inner.current_bytes,
+                inner.total_bytes,
+                average_bytes_per_second,
+            )
+            .map_or_else(
+                || "unknown".to_string(),
+                |duration| humantime::format_duration(duration).to_string(),
+            );
+
+            let percentage = if inner.total_bytes > 0 {
+                (inner.current_bytes as f64 / inner.total_bytes as f64) * 100.0
+            } else {
+                0.0
+            };
+
             eprintln!(
-                "Downloaded {} / {} bytes ({:.2}%)",
+                "Downloaded {} / {} ({:.2}%); avg {}/s, recent {}/s; elapsed {}; ETA {}",
                 human_bytes(inner.current_bytes as f64),
                 human_bytes(inner.total_bytes as f64),
-                percentage
+                percentage,
+                human_bytes(average_bytes_per_second),
+                human_bytes(part_bytes_per_second),
+                humantime::format_duration(elapsed),
+                remaining
             );
             inner.current_bytes_part = 0;
+            inner.last_logged_at = Some(now);
         }
     }
 
     fn finish(&self) {
-        // do nothing
+        let inner = self.inner.lock().expect("poisoned tracker lock");
+        let elapsed = inner
+            .started_at
+            .map_or(Duration::ZERO, |start| start.elapsed());
+        let bytes_per_second = average_speed(inner.current_bytes, elapsed);
+
+        eprintln!(
+            "Download complete: {} in {} (avg {}/s)",
+            human_bytes(inner.current_bytes as f64),
+            humantime::format_duration(elapsed),
+            human_bytes(bytes_per_second)
+        );
     }
 }

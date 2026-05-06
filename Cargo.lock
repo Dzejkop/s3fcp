@@ -1737,6 +1737,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91f255a4535024abf7640cb288260811fc14794f62b063652ed349f9a6c2348e"
 
 [[package]]
+name = "humantime"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
+
+[[package]]
 name = "hybrid-array"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2941,6 +2947,7 @@ dependencies = [
  "flume",
  "futures",
  "human_bytes",
+ "humantime",
  "indicatif",
  "rand 0.10.1",
  "reqwest",
