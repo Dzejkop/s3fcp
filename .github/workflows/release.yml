@@ -60,3 +60,28 @@ jobs:
         with:
           files: release/*
           generate_release_notes: true
+
+  publish-s3:
+    name: Publish to internal artifact bucket
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: s3fcp-linux-x86_64
+          path: artifacts
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::866736719513:role/oidc/s3fcp-publish
+          aws-region: eu-central-2
+      - name: Upload to S3
+        run: |
+          chmod +x artifacts/s3fcp
+          aws s3 cp artifacts/s3fcp \
+            "s3://wld-cli-artifacts/s3fcp/${GITHUB_REF_NAME}/s3fcp-linux-x86_64" \
+            --only-show-errors

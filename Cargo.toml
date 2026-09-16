@@ -6,7 +6,7 @@ description = "Fast file downloader with multi-part concurrent downloads from S3
 license = "MIT"
 readme = "README.md"
 authors = ["Jakub Trąd"]
-repository = "https://github.com/Dzejkop/s3fcp"
+repository = "https://github.com/worldcoin/s3fcp"
 keywords = ["s3", "download", "http", "cli", "parallel"]
 categories = ["command-line-utilities", "network-programming"]
 
